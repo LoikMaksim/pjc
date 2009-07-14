@@ -16,5 +16,5 @@ class MyJabberBot extends JabberClient {
 
 /* Daemon example */
 $bot = new MyJabberBot('jabber.org', 5222, 'username', 'password', 'mybot-resource');
-$bot->initialize(); // connecting, XMPP initialization
+$bot->initiate(); // connecting, XMPP initialization
 $bot->runEventBased();
