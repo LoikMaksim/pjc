@@ -5,6 +5,8 @@
 
 require_once('XMLStream/XMLStream.class.php');
 require_once('Log.class.php');
+require_once('exceptions/NetworkException.class.php');
+require_once('exceptions/NotAuthorizedException.class.php');
 
 class XMPP {
 	protected $host;
@@ -69,7 +71,12 @@ class XMPP {
 
 	protected function authorize() {
 		$this->out->write("<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='PLAIN'>".base64_encode("\x00".$this->username."\x00".$this->password)."</auth>");
-		$this->in->readElement('success');
+		$elt = $this->in->readElement();
+		if($elt->getName() == 'failure')
+			throw new NotAuthorizedException('Not authorized');
+		elseif($elt->getName() != 'success')
+			throw new NotAuthorizedException("Strange message:\n".$elt->dump());
+
 		Log::notice('Authorized');
 	}
 

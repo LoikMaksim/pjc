@@ -48,7 +48,7 @@ class XMLStream extends XMLTokenStream {
 		$elementName = $node->getName();
 
 		$elt = new XMLStreamElementMY($node->getName());
-// var_dump($elt);
+
 		foreach($node->getParams() as $k=>$v)
 			$elt->appendParameter($k, $v);
 
@@ -62,7 +62,7 @@ class XMLStream extends XMLTokenStream {
 					if($node->getName() === $elementName)
 						break;
 					else
-						throw new XMLStreamException('Unexpected close tag');
+						throw new XMLStreamException('Unexpected close tag `'.$node->getName().'`. `'.$elementName.'` expected');
 				}
 
 				if($node->isData()) {

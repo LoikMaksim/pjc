@@ -47,7 +47,7 @@ class XMLStreamNode {
 			$params = substr($importString, strlen('<?xml'), strlen($importString) - (strlen('<?xml') + strlen('?>')));
 			$this->params = $this->parseParameters($params);
 			$this->type = self::TYPE_XML_DECLARATION;
-		} elseif(preg_match('/^<(\/|)([^\s]+)(\s(.*?)|)(\/|)>$/s', $importString, $m)) {
+		} elseif(preg_match('/^<(\/|)([^\s\/]+)(\s(.*?)|)(\/|)>$/s', $importString, $m)) {
 			$this->name = $m[2];
 			if(strlen($m[4]))
 				$this->params = $this->parseParameters($m[3]);
