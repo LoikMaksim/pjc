@@ -1,6 +1,6 @@
 <?php
 /*
-	$Id: XMPP.class.php 9 2009-07-13 16:55:06Z arepo $
+	$Id$
 */
 
 require_once('XMLStream/XMLStream.class.php');
