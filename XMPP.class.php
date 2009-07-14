@@ -36,8 +36,6 @@ class XMPP {
 		$this->username = $username;
 		$this->password = $password;
 		$this->resourceName = $res;
-
-		$this->cronAddPeriodic($this->pingInterval, array($this, 'ping'));
 	}
 
 	protected function connect() {
@@ -104,32 +102,16 @@ class XMPP {
 		$this->out->write("<iq xmlns='jabber:client' type='set' id='".$this->genId()."'><session xmlns='urn:ietf:params:xml:ns:xmpp-session' /></iq>");
 		$this->in->readElement('iq');
 
-		$this->addHandler('presence[type=subscribe]', array($this, 'presenceHandler'));
-		$this->addHandler('iq:has(ping)', array($this, 'pingHandler'));
-
 		$this->presence();
 
+		$this->initiated();
 		Log::notice('Session initiated');
-		$this->onSessionStarted();
 	}
 
-	protected function onSessionStarted() {
-	}
+	protected function initiated() {
+		$this->addHandler('iq:has(ping)', array($this, 'pingHandler'));
 
-	function sendMessage($to, $body, $type = 'chat') {
-		return $this->message($to, $body, $type);
-	}
-
-	function message($to, $body, $type = 'chat') {
-		$nbody = iconv('utf-8', 'utf-8//IGNORE', $body);
-		if($nbody !== $body) {
-			$nbody = '[MESSAGE WAS TRUNCATED. NON-UTF8 CHARACTERS DETECTED]'.$nbody;
-			Log::warning('Non-utf8 string, truncated', $body);
-		}
-		$body = htmlspecialchars($nbody);
-		Log::notice('Sending message to '.$to.' ...');
-		$this->out->write("<message from='{$this->realm}' to='$to' type='chat'><body>$body</body></message>");
-		Log::notice('Sended');
+		$this->cronAddPeriodic($this->pingInterval, array($this, 'ping'));
 	}
 
 	function ping() {
@@ -158,6 +140,8 @@ class XMPP {
 				Log::notice('Unhandled event', $elt->dump());
 		}
 	}
+
+	/* ----------------------------- cron ---------------------------- */
 
 	public function alarm() {
 		$this->cron();
@@ -265,15 +249,6 @@ class XMPP {
 		$this->out->write('<presence/>');
 	}
 
-	protected function presenceHandler($xmpp, $element) {
-		$from = $element->getParam('from');
-		if($element->hasParam('type')) {
-			$type = $element->getParam('type');
-			if($type === 'subscribe')
-				$xmpp->acceptSubscription($from);
-		}
-	}
-
 	protected function pingHandler($xmpp, $element) {
 		if($element->hasChild('error')) {
 			$err = $element->child('error');
@@ -282,21 +257,6 @@ class XMPP {
 		} else {
 			Log::notice('Ping response');
 		}
-	}
-
-	public function acceptSubscription($jid) {
-		$this->out->write('<presence to="'.$jid.'" type="subscribed"/>');
-		Log::notice("Subscription request from `$jid` accepted");
-	}
-
-	public function requestSubscription($jid) {
-		$this->out->write('<presence to="'.$jid.'" type="subscribe"/>');
-		Log::notice("Subscription request to `$jid` sended");
-	}
-
-	public function resetSubscription($jid) {
-		$this->out->write('<presence to="'.$jid.'" type="unsubscribe"/>');
-		Log::notice("Reset subscription for `$jid`");
 	}
 
 	protected function runHandlers($element) {
