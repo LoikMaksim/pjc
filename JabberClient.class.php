@@ -3,11 +3,15 @@
 	$Id$
 */
 require_once('XMPP.class.php');
+require_once('User.class.php');
+require_once('Conference.class.php');
 
 class JabberClient extends XMPP {
 	protected $messagesQueue = array();
 	protected $messagesQueueInterval = 1;
 	protected $messagesQueueLastSendTime;
+
+	protected $conferences = array();
 // 	protected $messagesQueuePollRequested = false;
 /*
 	function __construct($host, $port, $username, $password, $res = 'pajc') {
@@ -19,6 +23,7 @@ class JabberClient extends XMPP {
 
 		$this->addHandler('message', array($this, 'messageHandler'));
 		$this->addHandler('presence[type=subscribe]', array($this, 'subscribeRequestHandler'));
+		$this->addHandler('presence:has(x[xmlns=http://jabber.org/protocol/muc#user])', array($this, 'conferenceUserPresenceHandler'));
 
 		$this->cronAddPeriodic(60*60, array($this, 'hourly'));
 		$this->cronAddPeriodic(60*60*24, array($this, 'daily'));
@@ -28,7 +33,24 @@ class JabberClient extends XMPP {
 
 	/* ----------------------------------- messages --------------------------*/
 	protected function messageHandler($xmpp, $elt) {
-		return $this->onMessage($elt->getParam('from'), $elt->child('body')->getText(), null, $elt);
+		$fromUser = new User($this, $elt->param('from'));
+		$message = $elt->child('body')->getText();
+
+		$continueHandling = true;
+
+		if($elt->param('type') == 'groupchat') {
+			$conferenceAddress = XMPP::parseJid($elt->param('from'), 'short');
+			if(!$this->joinedToConference($conferenceAddress))
+				throw new Exception("Message from unjoined conference `$conferenceAddress`");
+			$continueHandling = $this->onConferenceMessage($this->conferences[$conferenceAddress], $fromUser, $message, $elt); //!
+		} else {
+			$continueHandling = $this->onPrivateMessage($fromUser, $message, null, $elt);
+		}
+
+		if($continueHandling !== false)
+			$continueHandling = $this->onMessage($fromUser, $message, null, $elt);
+
+		return $continueHandling;
 	}
 
 	function sendMessage($to, $body, $type = 'chat') {
@@ -43,7 +65,7 @@ class JabberClient extends XMPP {
 		}
 		$body = htmlspecialchars($nbody);
 		Log::notice('Sending message to '.$to.' ...');
-		$this->out->write("<message from='{$this->realm}' to='$to' type='chat'><body>$body</body></message>");
+		$this->out->write("<message from='{$this->realm}' to='$to' type='$type'><body>$body</body></message>");
 		Log::notice('Sended');
 	}
 
@@ -61,7 +83,7 @@ class JabberClient extends XMPP {
 		$this->messagesQueueLastSendTime = time() + $delay;
 	}
 
-	function pollMessageQueue() {
+	protected function pollMessageQueue() {
 		// no alarm-safe
 		Log::notice('pollMessageQueue() ...');
 
@@ -75,19 +97,51 @@ class JabberClient extends XMPP {
 	}
 
 	/* -------------------------------- conference -------------------------- */
-	function joinConference($conference, $nick = null) {
+	public function joinConference($conferenceAddress, $nick = null) {
 		if($nick === null)
 			$nick = $this->username;
 
-		$conference = htmlspecialchars($conference.'/'.$nick);
+		$conference = htmlspecialchars($conferenceAddress.'/'.$nick);
 		$this->out->write(
 			"<presence to='$conference' id='{$this->genId()}'><x xmlns='http://jabber.org/protocol/muc' /></presence>"
 		);
 	}
 
+	public function leaveConference($conferenceAddress) {
+		if(!$this->joinedToConference($conferenceAddress))
+			return;
+
+		$conf = $this->conferences[$conferenceAddress];
+		$conf->clear();
+		unset($this->conferences[$conferenceAddress]);
+	}
+
+	protected function registerConference($conferenceAddress) {
+		$conf = new Conference($this, $conferenceAddress);
+		$this->conferences[$conferenceAddress] = $conf;
+		return $conf;
+	}
+
+	public function joinedToConference($conferenceAddress) {
+		return isset($this->conferences[$conferenceAddress]);
+	}
+
+	protected function conferenceUserPresenceHandler($xmpp, $elt) {
+		$conferenceAddress = XMPP::parseJid($elt->param('from'), 'short');
+		if($this->joinedToConference($conferenceAddress))
+			$conference = $this->conferences[$conferenceAddress]; //!
+		else
+			$conference = $this->registerConference($conferenceAddress);
+
+		$user = new User($this, $elt->param('from'));
+		$user->fromConference($conference);
+		$conference->addParticipant($user);
+	}
+
 	/* -------------------------------- subscription ------------------------ */
 	protected function subscribeRequestHandler($xmpp, $element) {
-		return $this->onSubscribeRequest($element->getParam('from'));
+		$fromUser = new User($this, $element->getParam('from'), $element);
+		return $this->onSubscribeRequest($fromUser);
 	}
 
 	public function acceptSubscription($jid) {
@@ -106,12 +160,17 @@ class JabberClient extends XMPP {
 	}
 
 	/* ---------------- predefined handlers -------------------- */
-	protected function onMessage($from, $body, $subject, $elt) {
+	protected function onMessage($fromUser, $body, $subject, $elt) {
 		Log::notice('Message', $elt->dump());
 	}
 
+	protected function onPrivateMessage($fromUser, $body, $subject, $elt) {}
+	protected function onConferenceMessage($fromConference, $fromUser, $body, $elt) {}
+
 	protected function onSessionStarted() {}
-	protected function onSubscribeRequest() {}
+	protected function onSubscribeRequest($fromUser, $elt) {
+		Log::notice('Subscription Request', $elt->dump());
+	}
 
 	/*  ------------------ cron periodic ----------------------- */
 	protected function daily() {}

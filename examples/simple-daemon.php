@@ -6,11 +6,11 @@ class MyJabberBot extends JabberClient {
 		Base event.
 		Runs when message received
 	*/
-	protected function onMessage($from, $body) {
-		// $from: 'user@jabber.org/resource'
+	protected function onMessage($fromUser, $body) {
+		// $from: User
 		// $body: 'message text'
 
-		$this->sendMessage($from, 'Received message: '.$body);
+		$fromUser->sendMessage('Received message: '.$body);
 	}
 }
 
