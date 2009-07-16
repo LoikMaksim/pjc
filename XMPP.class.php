@@ -326,6 +326,10 @@ class XMPP {
 		return false;
 	}
 
+	public function shortJid() {
+		return XMPP::parseJid($this->realm, 'short');
+	}
+
 	static function parseJid($jid, $component = null) {
 		$arr = array();
 		if(preg_match('/^([a-z0-9_\-\.]+)@([a-z0-9_\-\.]+)(\/([a-z0-9_\-\.]+)|)$/i', $jid, $m)) {
