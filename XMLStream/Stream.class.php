@@ -65,7 +65,6 @@ class Stream {
 
 				try {
 					$s = stream_select($readFds, $writeFds, $exceptFds, 600, 0);
-					Log::notice('select(): '.$s);
 
 					if($s) {
 						$readed = fread($this->streamFd, $toRead);
