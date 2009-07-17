@@ -66,6 +66,9 @@ class XMLStreamNode {
 			$this->type = self::TYPE_TEXT;
 
 		}
+
+		if(strlen($this->text))
+			$this->text = htmlspecialchars_decode($this->text);
 	}
 
 	/*static */protected function parseParameters($parametersString) {
