@@ -17,6 +17,7 @@ class XMPP {
 
 	protected $resourceName;
 	protected $realm;
+	protected $priority;
 
 	protected $sock;
 	protected $handlers = array();
@@ -29,13 +30,14 @@ class XMPP {
 
 	protected $crontab = array();
 
-	function __construct($host, $port, $username, $password, $res = 'pajc') {
+	function __construct($host, $port, $username, $password, $res = 'pajc', $priority = 1) {
 		$this->lastPingTime = time();
 		$this->host = $host;
 		$this->port = $port;
 		$this->username = $username;
 		$this->password = $password;
 		$this->resourceName = $res;
+		$this->priority = $priority;
 	}
 
 	protected function connect() {
@@ -246,7 +248,7 @@ class XMPP {
 	}
 
 	public function presence() {
-		$this->out->write('<presence/>');
+		$this->out->write('<presence><priority>'.$this->priority.'</priority></presence>');
 	}
 
 	protected function pingHandler($xmpp, $element) {
