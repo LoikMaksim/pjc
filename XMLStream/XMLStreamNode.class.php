@@ -106,7 +106,7 @@ class XMLStreamNode {
 						$paramName = '';
 						$isSpace = true;
 					}
-				} elseif(!ctype_alnum($chr)) {
+				} elseif(!ctype_alnum($chr) && $chr !== ':') {
 					throw new Exception("Can't parse parameter name `$paramName` ($parametersString)");
 				} else {
 					$paramName .= $chr;
