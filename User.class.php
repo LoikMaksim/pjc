@@ -32,7 +32,7 @@ class User {
 
 	/* ------------------------- subscription --------------------------- */
 
-	public function acceptSubscribtion() {
+	public function acceptSubscription() {
 		$this->xmpp->acceptSubscription($this->shortJid());
 	}
 
