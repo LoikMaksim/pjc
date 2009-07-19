@@ -71,7 +71,77 @@ class XMLStreamNode {
 			$this->text = htmlspecialchars_decode($this->text);
 	}
 
-	/*static */protected function parseParameters($parametersString) {
+	static function parseParameters($parametersString) {
+		$parametersString = trim($parametersString);
+
+		$params = array();
+		$isParamName = true;
+		$isSpace = false;
+		$paramName = '';
+		$paramValue = '';
+		$isParamValue = true;
+		$paramValueQuoteType = null;
+
+		for($i=0; $i<strlen($parametersString); $i++) {
+			$chr = $parametersString{$i};
+
+			if($isSpace) {
+				if(ctype_space($chr))
+					continue;
+				$isParamName = true;
+				$isSpace = false;
+			}
+
+			if($isParamName) {
+				if($chr === '=' || ctype_space($chr)) {
+					if(!strlen($paramName))
+						throw new Exception("Empty parameter name ($parametersString)");
+
+					$params[$paramName] = true;
+					if($chr === '=') {
+						$isParamName = false;
+						$isParamValue = true;
+					} else {
+						$isParamName = false;
+						$paramName = '';
+						$isSpace = true;
+					}
+				} elseif(!ctype_alnum($chr)) {
+					throw new Exception("Can't parse parameter name `$paramName` ($parametersString)");
+				} else {
+					$paramName .= $chr;
+				}
+				continue;
+			} elseif($isParamValue) {
+				if($paramValueQuoteType === null) {
+					if($chr == "'" || $chr == '"')
+						$paramValueQuoteType = $chr;
+					else
+						throw new Exception("Unquoted parameter ($parametersString)");
+
+				} elseif($chr === $paramValueQuoteType) {
+					$isParamValue = false;
+					$isSpace = true;
+
+					$params[$paramName] = $paramValue;
+
+					$paramName = '';
+					$paramValue = '';
+					$paramValueQuoteType = null;
+				} else {
+					$paramValue .= $chr;
+				}
+			}
+		}
+
+		if($isParamName || $isParamValue) {
+			throw new Exception("Unexpected end of parameters string ($parametersString)");
+		}
+
+		return $params;
+	}
+
+	/*static */protected function parseParametersOld($parametersString) {
 		$params = array();
 		$origParametersString = $parametersString;
 		$parametersString = trim($parametersString);
