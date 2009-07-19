@@ -73,6 +73,7 @@ class XMLStreamNode {
 
 	/*static */protected function parseParameters($parametersString) {
 		$params = array();
+		$origParametersString = $parametersString;
 		$parametersString = trim($parametersString);
 		if(strlen($parametersString)) {
 			$pa = preg_split('/\s+/', $parametersString);
@@ -85,7 +86,7 @@ class XMLStreamNode {
 					if($valString{0} === '\'' || $valString{0} === '"') {
 						$lastChr = $valString{strlen($valString)-1};
 						if($lastChr !== $valString{0})
-							throw new Exception("Can't parse parameter value `$valString`");
+							throw new Exception("Can't parse parameter value `$valString` ($origParametersString)");
 						$value = substr($valString, 1, strlen($valString)-2);
 					} else {
 						$value = $valString;
