@@ -334,7 +334,7 @@ class XMPP {
 
 	static function parseJid($jid, $component = null) {
 		$arr = array();
-		if(preg_match('/^([a-z0-9_\-\.]+)@([a-z0-9_\-\.]+)(\/(.+)|)$/i', $jid, $m)) {
+		if(preg_match('/^([^@]+)@([^\/]+)(\/(.+)|)$/i', $jid, $m)) {
 			$arr['username'] = $m[1];
 			$arr['hostname'] = $m[2];
 			$arr['short'] = $m[1].'@'.$m[2];
