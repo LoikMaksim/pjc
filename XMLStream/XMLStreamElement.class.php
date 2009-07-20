@@ -67,7 +67,7 @@ class XMLStreamElementMY {
 		if(sizeof($ents) > 1)
 			throw new XMLStreamElementException('Multiple entries with same name');
 		elseif(!sizeof($ents))
-			throw new XMLStreamElementException('No child with requested name');
+			throw new XMLStreamElementException("No child with requested name `$childElementName`: ".$this->dump());
 		return $ents[0];
 	}
 
