@@ -21,7 +21,7 @@ class JabberClient extends XMPP {
 	function initiated() {
 		parent::initiated();
 
-		$this->addHandler('message', array($this, 'messageHandler'));
+		$this->addHandler('message:has(body)', array($this, 'messageHandler'));
 		$this->addHandler('presence[type=subscribe]', array($this, 'subscribeRequestHandler'));
 		$this->addHandler('presence:has(x[xmlns=http://jabber.org/protocol/muc#user])', array($this, 'conferenceUserPresenceHandler'));
 
