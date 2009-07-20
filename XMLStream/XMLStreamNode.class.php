@@ -68,7 +68,7 @@ class XMLStreamNode {
 		}
 
 		if(strlen($this->text))
-			$this->text = htmlspecialchars_decode($this->text);
+			$this->text = htmlspecialchars_decode(str_replace('&apos;', "'", $this->text));
 	}
 
 	static function parseParameters($parametersString) {
