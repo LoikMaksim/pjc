@@ -353,4 +353,8 @@ class XMPP {
 
 		return $arr;
 	}
+
+	function __destruct() {
+		fclose($this->sock);
+	}
 }
