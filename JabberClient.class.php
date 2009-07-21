@@ -24,6 +24,7 @@ class JabberClient extends XMPP {
 		$this->addHandler('message:has(body)', array($this, 'messageHandler'));
 		$this->addHandler('presence[type=subscribe]', array($this, 'subscribeRequestHandler'));
 		$this->addHandler('presence:has(x[xmlns=http://jabber.org/protocol/muc#user])', array($this, 'conferenceUserPresenceHandler'));
+		$this->addHandler('iq[type=get]:has(query[xmlns=jabber:iq:version])', array($this, 'versionRequestHandler'));
 
 		$this->cronAddPeriodic(60*60, array($this, 'hourly'));
 		$this->cronAddPeriodic(60*60*24, array($this, 'daily'));
@@ -160,6 +161,39 @@ class JabberClient extends XMPP {
 	public function resetSubscription($jid) {
 		$this->out->write('<presence to="'.$jid.'" type="unsubscribe"/>');
 		Log::notice("Reset subscription for `$jid`");
+	}
+
+	/* --------------------- client info --------------------------- */
+	protected function versionRequestHandler($xmpp, $element) {
+		if(!$element->hasParam('id') || !$element->hasParam('from'))
+			return;
+		$id = htmlspecialchars($element->param('id'), ENT_QUOTES);
+		$jid = $element->param('from');
+
+		$xmpp->out->write(
+			"<iq".
+					" type='result'".
+					" to='$jid'".
+					" id='$id'".
+			">".
+				"<query xmlns='jabber:iq:version'>".
+					"<name>PJC</name>".
+					"<version>0.0.1</version>".
+					"<os>FreeBSD 7.2</os>".
+				"</query>".
+			"</iq>"
+		);
+	}
+
+	public function setUserStatus($statusString) {
+		$statusString = htmlspecialchars($statusString);
+		$this->out->write(
+				"<presence>".
+					"<x xmlns='vcard-temp:x:update'><photo /></x>".
+					"<c xmlns='http://jabber.org/protocol/caps' hash='sha-1' />".
+					"<status>$statusString</status>".
+				"</presence>"
+		);
 	}
 
 	/* ---------------- predefined handlers -------------------- */
