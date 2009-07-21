@@ -3,6 +3,8 @@ require_once('JabberClient.class.php');
 require_once('Conference.class.php');
 
 class User {
+	static $numInstances = 0;
+
 	protected $xmpp;
 	protected $jid;
 	protected $conference;
@@ -10,7 +12,13 @@ class User {
 	function __construct(JabberClient $xmpp, $jid) {
 		$this->xmpp = $xmpp;
 		$this->jid = $jid;
+		self::$numInstances++;
 	}
+
+	public function __destruct() {
+		self::$numInstances--;
+	}
+
 
 	public function shortJid() {
 		return XMPP::parseJid($this->jid, 'short');

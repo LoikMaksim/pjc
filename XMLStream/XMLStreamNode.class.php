@@ -4,6 +4,8 @@
 */
 
 class XMLStreamNode {
+	static $numInstances = 0;
+
 	const TYPE_XML_DECLARATION = 'xml declaration';
 	const TYPE_OPEN = 'open';
 	const TYPE_EMPTY = 'empty';
@@ -22,6 +24,11 @@ class XMLStreamNode {
 	function __construct($importString) {
 		$this->xmlString = $importString;
 		$this->parse($importString);
+		self::$numInstances++;
+	}
+
+	public function __destruct() {
+		self::$numInstances--;
 	}
 
 	function getXmlString() {

@@ -6,6 +6,7 @@
 require_once('XMLStreamElementException.class.php');
 
 class XMLStreamElementMY {
+	static $numInstances = 0;
 	protected $name;
 
 	protected $childs = array();
@@ -13,7 +14,12 @@ class XMLStreamElementMY {
 	protected $params = array();
 
 	public function __construct($elementName) {
+		self::$numInstances++;
 		$this->name = $elementName;
+	}
+
+	public function __destruct() {
+		self::$numInstances--;
 	}
 
 	public function appendChild($child) {
