@@ -33,6 +33,9 @@ class JabberClient extends XMPP {
 
 	/* ----------------------------------- messages --------------------------*/
 	protected function messageHandler($xmpp, $elt) {
+		if($elt->hasParam('type') && $elt->param('type')==='error')
+			return;
+
 		$fromUser = new User($this, $elt->param('from'));
 		$message = $elt->child('body')->getText();
 
