@@ -192,6 +192,7 @@ class JabberClient extends XMPP {
 					"<x xmlns='vcard-temp:x:update'><photo /></x>".
 					"<c xmlns='http://jabber.org/protocol/caps' hash='sha-1' />".
 					"<status>$statusString</status>".
+					"<priority>{$this->priority}</priority>".
 				"</presence>"
 		);
 	}
