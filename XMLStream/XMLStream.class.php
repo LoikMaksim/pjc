@@ -24,7 +24,7 @@ class XMLStream extends XMLTokenStream {
 			$node = $this->readNode();
 
 		if($expectedName !== null && $node->getName() !== $expectedName)
-			throw new XMLStreamException("Unexpected node `{$node->getName()}`. `$expectedName` expected");
+			throw new XMLStreamException("Unexpected node `{$node->getName()}`. `$expectedName` expected: ".$token);
 
 		return $node;
 	}

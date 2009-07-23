@@ -30,21 +30,33 @@ class XMPP {
 
 	protected $crontab = array();
 
+	protected $useTls = true;
+
 	function __construct($host, $port, $username, $password, $res = 'pajc', $priority = 1) {
 		$this->lastPingTime = time();
+		$this->connectionAddress = $host;
+		if(preg_match('/^(.+?)@(.+)$/', $username, $m)) {
+			$host = $m[2];
+			$username = $m[1];
+		}
 		$this->host = $host;
 		$this->port = $port;
 		$this->username = $username;
 		$this->password = $password;
 		$this->resourceName = $res;
 		$this->priority = $priority;
+
+	}
+
+	public function disableTls() {
+		$this->useTls = false;
 	}
 
 	protected function connect() {
 		$errno = 0;
 		$errstr = 0;
 
-		$this->sock = @fsockopen($this->host, $this->port, $errno, $errstr);
+		$this->sock = @fsockopen($this->connectionAddress, $this->port, $errno, $errstr);
 		if(!$this->sock)
 			throw new NetworkException($errstr, $errno);
 		stream_set_blocking($this->sock, 0);
@@ -96,8 +108,12 @@ class XMPP {
 		$this->connect();
 		$this->out->write('<?xml version="1.0"?>');
 		$this->startStream();
-		$this->startTls();
-		$this->startStream();
+
+		if($this->useTls) {
+			$this->startTls();
+			$this->startStream();
+		}
+
 		$this->authorize();
 		$this->startStream();
 		$this->bindResource();
@@ -118,7 +134,7 @@ class XMPP {
 
 	function ping() {
 		$this->lastPingTime = time();
-		$this->out->write('<iq to="'.$this->host.'" type="get" id="'.$this->genId().'"><ping xmlns="urn:xmpp:ping" /></iq>');
+		$this->out->write('<iq to="'.$this->host.'" type="get" id="'.$this->genId().'" from="'.$this->realm.'"><ping xmlns="urn:xmpp:ping" /></iq>');
 		Log::notice('Ping request');
 	}
 

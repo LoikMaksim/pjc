@@ -74,8 +74,13 @@ class Stream {
 								throw new StreamException('read() error');
 							$this->streamEof = true;
 							break;
-						} elseif(!strlen($readed)) { // wtf?!
-							continue;
+						} elseif(!strlen($readed)) {
+							if(feof($this->streamFd)) {
+								$this->streamEof = true;
+								break;
+							} else { // wtf?!
+								continue;
+							}
 						}
 					} elseif($s === 0) {
 						continue;

@@ -32,6 +32,10 @@ class JabberClient extends XMPP {
 		$this->onSessionStarted();
 	}
 
+	function shortJid() {
+		return XMPP::parseJid($this->realm, 'short');
+	}
+
 	/* ----------------------------------- messages --------------------------*/
 	protected function messageHandler($xmpp, $elt) {
 		if($elt->hasParam('type') && $elt->param('type')==='error')
@@ -149,7 +153,7 @@ class JabberClient extends XMPP {
 	}
 
 	public function acceptSubscription($jid) {
-		$this->out->write('<presence to="'.$jid.'" type="subscribed"/>');
+		$this->out->write("<presence to='$jid' from='{$this->shortJid()}' type='subscribed'/>");
 		Log::notice("Subscription request from `$jid` accepted");
 	}
 
