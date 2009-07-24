@@ -167,6 +167,11 @@ class JabberClient extends XMPP {
 		Log::notice("Reset subscription for `$jid`");
 	}
 
+	public function removeSubscription($jid) {
+		$this->out->write('<presence to="'.$jid.'" type="unsubscribed"/>');
+		Log::notice("Reset subscription for `$jid`");
+	}
+
 	/* --------------------- client info --------------------------- */
 	protected function versionRequestHandler($xmpp, $element) {
 		if(!$element->hasParam('id') || !$element->hasParam('from'))
