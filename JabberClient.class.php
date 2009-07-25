@@ -71,9 +71,16 @@ class JabberClient extends XMPP {
 			$nbody = '[MESSAGE WAS TRUNCATED. NON-UTF8 CHARACTERS DETECTED]'.$nbody;
 			Log::warning('Non-utf8 string, truncated', $body);
 		}
-		$body = htmlspecialchars($nbody);
+		$body = $nbody;
 		Log::notice('Sending message to '.$to.' ...');
-		$this->out->write("<message from='{$this->realm}' to='$to' type='$type'><body>$body</body></message>");
+
+		$this->sendStanza(array(
+			'#name'=>'message',
+			'from'=>$this->realm,
+			'to'=>$to,
+			'type'=>$type,
+			array('#name'=>'body', $body)
+		));
 		Log::notice('Sended');
 	}
 
@@ -109,10 +116,13 @@ class JabberClient extends XMPP {
 		if($nick === null)
 			$nick = $this->username;
 
-		$conference = htmlspecialchars($conferenceAddress.'/'.$nick);
-		$this->out->write(
-			"<presence to='$conference' id='{$this->genId()}'><x xmlns='http://jabber.org/protocol/muc' /></presence>"
-		);
+		$this->sendStanza(array(
+			'#name'=>'presence',
+			array(
+				'#name'=>'x',
+				'xmlns'=>'http://jabber.org/protocol/muc'
+			)
+		));
 	}
 
 	public function leaveConference($conferenceAddress) {
@@ -153,22 +163,22 @@ class JabberClient extends XMPP {
 	}
 
 	public function acceptSubscription($jid) {
-		$this->out->write("<presence to='$jid' from='{$this->shortJid()}' type='subscribed'/>");
+		$this->sendStanza(array('#name'=>'presence', 'type'=>'subscribed', 'from'=>$this->shortJid(), 'to'=>$jid));
 		Log::notice("Subscription request from `$jid` accepted");
 	}
 
 	public function requestSubscription($jid) {
-		$this->out->write('<presence to="'.$jid.'" type="subscribe"/>');
+		$this->sendStanza(array('#name'=>'presence', 'type'=>'subscribe', 'from'=>$this->shortJid(), 'to'=>$jid));
 		Log::notice("Subscription request to `$jid` sended");
 	}
 
 	public function resetSubscription($jid) {
-		$this->out->write('<presence to="'.$jid.'" type="unsubscribe"/>');
+		$this->sendStanza(array('#name'=>'presence', 'type'=>'unsubscribe', 'from'=>$this->shortJid(), 'to'=>$jid));
 		Log::notice("Reset subscription for `$jid`");
 	}
 
 	public function removeSubscription($jid) {
-		$this->out->write('<presence to="'.$jid.'" type="unsubscribed"/>');
+		$this->sendStanza(array('#name'=>'presence', 'type'=>'unsubscribed', 'from'=>$this->shortJid(), 'to'=>$jid));
 		Log::notice("Reset subscription for `$jid`");
 	}
 
@@ -176,34 +186,40 @@ class JabberClient extends XMPP {
 	protected function versionRequestHandler($xmpp, $element) {
 		if(!$element->hasParam('id') || !$element->hasParam('from'))
 			return;
-		$id = htmlspecialchars($element->param('id'), ENT_QUOTES);
+		$id = $element->param('id');
 		$jid = $element->param('from');
 
-		$xmpp->out->write(
-			"<iq".
-					" type='result'".
-					" to='$jid'".
-					" id='$id'".
-			">".
-				"<query xmlns='jabber:iq:version'>".
-					"<name>PJC</name>".
-					"<version>0.0.1</version>".
-					"<os>FreeBSD 7.2</os>".
-				"</query>".
-			"</iq>"
-		);
+		$this->sendStanza(array(
+			'#name'=>'iq',
+			'type'=>'result',
+			'to'=>$jid,
+			'id'=>$id,
+			array(
+				'#name'=>'query',
+				'xmlns'=>'jabber:iq:version',
+				array('#name'=>'name', 'PJC'),
+				array('#name'=>'version', '0.0.2'),
+				array('#name'=>'os', 'FreeBSD')
+			)
+		));
 	}
 
 	public function setUserStatus($statusString) {
-		$statusString = htmlspecialchars($statusString);
-		$this->out->write(
-				"<presence>".
-					"<x xmlns='vcard-temp:x:update'><photo /></x>".
-					"<c xmlns='http://jabber.org/protocol/caps' hash='sha-1' />".
-					"<status>$statusString</status>".
-					"<priority>{$this->priority}</priority>".
-				"</presence>"
-		);
+		$this->sendStanza(array(
+			'#name'=>'presence',
+			array(
+				'#name'=>'x',
+				'xmlns'=>'vcard-temp:x:update',
+				array('#name'=>'photo')
+			),
+			array(
+				'#name'=>'c',
+				'xmlns'=>'http://jabber.org/protocol/caps',
+				'hash'=>'sha-1'
+			),
+			array('#name'=>'status', $statusString),
+			array('#name'=>'priority', $this->priority)
+		));
 	}
 
 	/* ---------------- predefined handlers -------------------- */

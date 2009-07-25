@@ -127,4 +127,44 @@ class XMLStreamElementMY {
 
 		return $out;
 	}
+
+	static function escapeText($str) {
+		return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+	}
+
+	static function escapeParam($str) {
+		return self::escapeText($str);
+	}
+
+	static function quoteParam($str) {
+		return "'".self::escapeParam($str)."'";
+	}
+
+	public function __toString() {
+		$xml = "<{$this->name}";
+
+		$psa = array();
+		foreach($this->params as $name=>$value) {
+			if($value === true)
+				$psa[] = $name;
+			else
+				$psa[] = "$name=".self::quoteParam($value);
+		}
+		if(sizeof($psa))
+			$xml .= ' '.implode(' ', $psa);
+		unset($psa);
+
+		$content = self::escapeText($this->getText());
+		if(sizeof($this->childs)) {
+			foreach($this->childs as $child)
+				$content .= (string)$child;
+		}
+
+		if(strlen($content))
+			$xml .= '>'.$content.'</'.$this->name.'>';
+		else
+			$xml .= ' />';
+
+		return $xml;
+	}
 }

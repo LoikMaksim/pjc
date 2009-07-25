@@ -45,7 +45,10 @@ class XMPP {
 		$this->password = $password;
 		$this->resourceName = $res;
 		$this->priority = $priority;
+	}
 
+	function __destruct() {
+		fclose($this->sock);
 	}
 
 	public function disableTls() {
@@ -73,7 +76,7 @@ class XMPP {
 	}
 
 	protected function startTls() {
-		$this->out->write("<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>");
+		$this->sendStanza(array('#name'=>'starttls', 'xmlns'=>'urn:ietf:params:xml:ns:xmpp-tls'));
 		$this->in->readElement('proceed');
 
 		/*!TODO error handling */
@@ -82,7 +85,13 @@ class XMPP {
 	}
 
 	protected function authorize() {
-		$this->out->write("<auth xmlns='urn:ietf:params:xml:ns:xmpp-sasl' mechanism='PLAIN'>".base64_encode("\x00".$this->username."\x00".$this->password)."</auth>");
+		$this->sendStanza(array(
+			'#name'=>'auth',
+			'xmlns'=>'urn:ietf:params:xml:ns:xmpp-sasl',
+			'mechanism'=>'PLAIN',
+			base64_encode("\x00".$this->username."\x00".$this->password)
+		));
+
 		$elt = $this->in->readElement();
 		if($elt->getName() == 'failure')
 			throw new NotAuthorizedException('Not authorized');
@@ -98,7 +107,16 @@ class XMPP {
 	}
 
 	protected function bindResource() {
-		$this->out->write('<iq xmlns="jabber:client" type="set" id="'.$this->genId().'"><bind xmlns="urn:ietf:params:xml:ns:xmpp-bind"><resource>'.$this->resourceName.'</resource></bind></iq>');
+		$this->sendIq('set', array(
+			array(
+				'#name'=>'bind',
+				'xmlns'=>'urn:ietf:params:xml:ns:xmpp-bind',
+				array(
+					'#name'=>'resource',
+					$this->resourceName
+				)
+			)
+		));
 		$elt = $this->in->readElement('iq');
 		$this->realm = $elt->child('bind')->child('jid')->getText();
 		Log::notice('Resource binded. JID: '.$this->realm);
@@ -117,7 +135,12 @@ class XMPP {
 		$this->authorize();
 		$this->startStream();
 		$this->bindResource();
-		$this->out->write("<iq xmlns='jabber:client' type='set' id='".$this->genId()."'><session xmlns='urn:ietf:params:xml:ns:xmpp-session' /></iq>");
+		$this->sendIq('set', array(
+			array(
+				'#name'=>'session',
+				'xmlns'=>'urn:ietf:params:xml:ns:xmpp-session'
+			)
+		));
 		$this->in->readElement('iq');
 
 		$this->presence();
@@ -134,7 +157,10 @@ class XMPP {
 
 	function ping() {
 		$this->lastPingTime = time();
-		$this->out->write('<iq to="'.$this->host.'" type="get" id="'.$this->genId().'" from="'.$this->realm.'"><ping xmlns="urn:xmpp:ping" /></iq>');
+		$this->sendIq('get', array(
+			array('#name'=>'ping', 'xmlns'=>'urn:xmpp:ping')
+		));
+
 		Log::notice('Ping request');
 	}
 
@@ -264,7 +290,13 @@ class XMPP {
 	}
 
 	public function presence() {
-		$this->out->write('<presence><priority>'.$this->priority.'</priority></presence>');
+		$this->sendStanza(array(
+			'#name'=>'presence',
+			array(
+				'#name'=>'priority',
+				$this->priority
+			)
+		));
 	}
 
 	protected function pingHandler($xmpp, $element) {
@@ -370,7 +402,46 @@ class XMPP {
 		return $arr;
 	}
 
-	function __destruct() {
-		fclose($this->sock);
+	static function stanza(array $stanza) {
+		if(!isset($stanza['#name']))
+			throw new Exception('#name parameter not found');
+
+		$elt = new XMLStreamElementMY($stanza['#name']);
+		foreach($stanza as $p=>$v) {
+			if(is_string($p)) {
+				if($p{0} === '#')
+					continue;
+				$elt->appendParameter($p, $v);
+			} elseif(is_int($p)) {
+				if(is_array($v))
+					$elt->appendChild(self::stanza($v));
+				else
+					$elt->appendTextNode($v);
+			}
+		}
+
+		return $elt;
+	}
+
+	function sendStanza(array $stanza) {
+		if(!isset($stanza['id']))
+			$stanza['id'] = $this->genId();
+		if(!isset($stanza['from']))
+			$stanza['from'] = $this->realm;
+
+		$this->out->write((string)self::stanza($stanza));
+	}
+
+	function sendIq($type, $childs = array(), $id = null, $xmlns = 'jabber:client') {
+		if($id===null)
+			$id = $this->genId();
+
+		$r = array(
+			'#name'=>'iq',
+			'xmlns'=>$xmlns,
+			'type'=>$type,
+		);
+		$r = array_merge($r, $childs);
+		$this->sendStanza($r);
 	}
 }
