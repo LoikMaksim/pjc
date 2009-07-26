@@ -12,6 +12,7 @@ class JabberClient extends XMPP {
 	protected $messagesQueueLastSendTime;
 
 	protected $conferences = array();
+	protected $status = null;
 // 	protected $messagesQueuePollRequested = false;
 /*
 	function __construct($host, $port, $username, $password, $res = 'pajc') {
@@ -205,7 +206,12 @@ class JabberClient extends XMPP {
 	}
 
 	public function setUserStatus($statusString) {
-		$this->sendStanza(array(
+		$this->status = $statusString;
+		$this->presence();
+	}
+
+	public function presence($to = null) {
+		$stanza = array(
 			'#name'=>'presence',
 			array(
 				'#name'=>'x',
@@ -217,10 +223,48 @@ class JabberClient extends XMPP {
 				'xmlns'=>'http://jabber.org/protocol/caps',
 				'hash'=>'sha-1'
 			),
-			array('#name'=>'status', $statusString),
 			array('#name'=>'priority', $this->priority)
+		);
+
+		if($to !== null)
+			$stanza['to'] = $to;
+
+		if($this->status !== null)
+			$stanza[] = array('#name'=>'status', $this->status);
+
+		$this->sendStanza($stanza);
+	}
+
+	// XEP-080
+	public function setGeolocation($countryName, $locality, $latitude, $longitude, $accuracy = 5) {
+		$this->sendStanza(array(
+			'#name'=>'iq',
+			'type'=>'set',
+			'to'=>'jubo@nologin.ru',
+			array(
+				'#name'=>'pubsub',
+				'xmlns'=>'http://jabber.org/protocol/pubsub',
+				array(
+					'#name'=>'publish',
+					'node'=>'http://jabber.org/protocol/geoloc',
+					array(
+						'#name'=>'item',
+						array(
+							'#name'=>'geoloc',
+							'xmlns'=>'http://jabber.org/protocol/geoloc',
+							'xml:lang'=>'en',
+							array('#name'=>'country', $countryName),
+							array('#name'=>'locality', $locality),
+							array('#name'=>'lat', $latitude),
+							array('#name'=>'lon', $longitude),
+							array('#name'=>'accuracy', $accuracy)
+						)
+					)
+				)
+			)
 		));
 	}
+
 
 	/* ---------------- predefined handlers -------------------- */
 	protected function onMessage($fromUser, $body, $subject, $elt) {
