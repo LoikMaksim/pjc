@@ -66,22 +66,46 @@ class JabberClient extends XMPP {
 		return $this->message($to, $body, $type);
 	}
 
-	function message($to, $body, $type = 'chat') {
+	function _messageTruncateInvalidCharset($body) {
 		$nbody = iconv('utf-8', 'utf-8//IGNORE', $body);
 		if($nbody !== $body) {
 			$nbody = '[MESSAGE WAS TRUNCATED. NON-UTF8 CHARACTERS DETECTED]'.$nbody;
 			Log::warning('Non-utf8 string, truncated', $body);
 		}
-		$body = $nbody;
-		Log::notice('Sending message to '.$to.' ...');
+		return $nbody;
+	}
 
-		$this->sendStanza(array(
+	function message($to, $body, $type = 'chat') {
+		if(!is_array($body))
+			$body = array('plain'=>$body);
+
+		$stanza = array(
 			'#name'=>'message',
 			'from'=>$this->realm,
 			'to'=>$to,
 			'type'=>$type,
-			array('#name'=>'body', $body)
-		));
+		);
+
+		foreach($body as $type=>$message) {
+			$message = $this->_messageTruncateInvalidCharset($message);
+			if($type === 'xhtml') {
+				$stanza[] = array(
+					'#name'=>'html',
+					'xmlns'=>'http://jabber.org/protocol/xhtml-im',
+					array(
+						'#name'=>'body',
+						'xmlns'=>'http://www.w3.org/1999/xhtml',
+						'#plainXML'=>$message
+					)
+				);
+			} else {
+				$stanza[] = array('#name'=>'body', $message);
+			}
+		}
+
+		Log::notice('Sending message to '.$to.' ...');
+
+		$this->sendStanza($stanza);
 		Log::notice('Sended');
 	}
 

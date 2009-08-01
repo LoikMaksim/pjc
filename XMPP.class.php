@@ -409,9 +409,14 @@ class XMPP {
 		$elt = new XMLStreamElementMY($stanza['#name']);
 		foreach($stanza as $p=>$v) {
 			if(is_string($p)) {
-				if($p{0} === '#')
+
+				if($p === '#plainXML')
+					$elt->appendPlainXML($v);
+				elseif($p{0} === '#')
 					continue;
-				$elt->appendParameter($p, $v);
+				else
+					$elt->appendParameter($p, $v);
+
 			} elseif(is_int($p)) {
 				if(is_array($v))
 					$elt->appendChild(self::stanza($v));
@@ -428,7 +433,7 @@ class XMPP {
 			$stanza['id'] = $this->genId();
 		if(!isset($stanza['from']))
 			$stanza['from'] = $this->realm;
-
+// var_dump((string)self::stanza($stanza));
 		$this->out->write((string)self::stanza($stanza));
 	}
 

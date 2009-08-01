@@ -12,6 +12,7 @@ class XMLStreamElementMY {
 	protected $childs = array();
 	protected $textNodes = array();
 	protected $params = array();
+	protected $additionalPlainXML = '';
 
 	public function __construct($elementName) {
 		self::$numInstances++;
@@ -36,6 +37,10 @@ class XMLStreamElementMY {
 
 	public function appendParameter($name, $value) {
 		$this->params[$name] = $value;
+	}
+
+	public function appendPlainXML($xml) {
+		$this->additionalPlainXML .= $xml;
 	}
 
 	//-
@@ -159,6 +164,9 @@ class XMLStreamElementMY {
 			foreach($this->childs as $child)
 				$content .= (string)$child;
 		}
+
+		if(strlen($this->additionalPlainXML))
+			$content .= $this->additionalPlainXML;
 
 		if(strlen($content))
 			$xml .= '>'.$content.'</'.$this->name.'>';
