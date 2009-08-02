@@ -66,6 +66,10 @@ class JabberClient extends XMPP {
 		return $this->message($to, $body, $type);
 	}
 
+	function sendConfMessage($to, $body) {
+		return $this->message($to, $body, 'groupchat');
+	}
+
 	function _messageTruncateInvalidCharset($body) {
 		$nbody = iconv('utf-8', 'utf-8//IGNORE', $body);
 		if($nbody !== $body) {
@@ -121,6 +125,10 @@ class JabberClient extends XMPP {
 
 		$this->cronAddOnce($delay, array($this, 'pollMessageQueue'), 'JabberClient::pollMessageQueue');
 		$this->messagesQueueLastSendTime = time() + $delay;
+	}
+
+	function addConfMessage($to, $body) {
+		$this->addMessage($to, $body, 'groupchat');
 	}
 
 	protected function pollMessageQueue() {
