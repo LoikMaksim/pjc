@@ -223,7 +223,7 @@ class Stream {
 			for($written = 0; $written<strlen($string); $written+=$count) {
 				$count = fwrite($this->streamFd, substr($string, $written));
 				if(!$count)// strange case
-					throw new StreamException('Strange behaviour of fwrite(): returned '.var_export($count));
+					throw new StreamException('Strange behaviour of fwrite(): returned '.var_export($count, true));
 			}
 		} catch(StreamException $e) {
 			$this->streamErrorHandlingEnd();
