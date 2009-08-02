@@ -143,6 +143,7 @@ class JabberClient extends XMPP {
 
 		$this->sendStanza(array(
 			'#name'=>'presence',
+			'to'=>"$conferenceAddress/$nick",
 			array(
 				'#name'=>'x',
 				'xmlns'=>'http://jabber.org/protocol/muc'
