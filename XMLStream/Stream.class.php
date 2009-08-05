@@ -12,6 +12,9 @@ class Stream {
 	private $streamBufferPos = 0;
 	private $streamBufferMaxSize = 65536;
 	private $streamEof = false;
+
+	public $bytesRead = 0;
+	public $bytesWritten = 0;
 // 	protected $streamLastErrno = false;
 // 	protected $streamLastErrstr = false;
 
@@ -86,6 +89,7 @@ class Stream {
 						continue;
 					}
 
+					$this->bytesRead += strlen($readed);
 					$this->streamBuffer .= $readed;
 					break;
 				} catch(StreamException $e) {
@@ -229,6 +233,7 @@ class Stream {
 							' feof() is '.var_export(feof($this->streamFd), true)
 					);
 				}
+				$this->bytesWritten += $count;
 			}
 		} catch(StreamException $e) {
 			$this->streamErrorHandlingEnd();
