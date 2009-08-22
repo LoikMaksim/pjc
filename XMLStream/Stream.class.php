@@ -42,7 +42,7 @@ class Stream {
 		elseif(preg_match('/^(.*?)\(\).*errno\=(\d+) (.*?)$/', $errstr, $m))
 			throw new StreamException($m[1].'(): '.$m[3], (int)$m[2]);
 		else
-			throw new StreamException($errstr);
+			throw new StreamException($errstr/*, $errno*/);
 
 		return true;
 	}
@@ -222,22 +222,29 @@ class Stream {
 
 	public function write($string) {
 		$this->streamErrorHandlingStart();
-		try {
-			$count = 0;
-			for($written = 0; $written<strlen($string); $written+=$count) {
-				$count = fwrite($this->streamFd, substr($string, $written));
-				if(!$count) { // strange case
-					throw new StreamException(
-						'Strange behaviour of fwrite():'.
-							' returned '.var_export($count, true).','.
-							' feof() is '.var_export(feof($this->streamFd), true)
-					);
+		while(true) {
+			try {
+				$count = 0;
+				for($written = 0; $written<strlen($string); $written+=$count) {
+					$count = fwrite($this->streamFd, substr($string, $written));
+					if(!$count) { // strange case
+						throw new StreamException(
+							'Strange behaviour of fwrite():'.
+								' returned '.var_export($count, true).','.
+								' feof() is '.var_export(feof($this->streamFd), true)
+						);
+					}
+					$this->bytesWritten += $count;
 				}
-				$this->bytesWritten += $count;
+				break;
+			} catch(StreamException $e) {
+				if($e->getCode() == 35) { // EAGAIN
+					usleep(1000000*0.1);
+					continue;
+				}
+				$this->streamErrorHandlingEnd();
+				throw $e;
 			}
-		} catch(StreamException $e) {
-			$this->streamErrorHandlingEnd();
-			throw $e;
 		}
 		$this->streamErrorHandlingEnd();
 	}
