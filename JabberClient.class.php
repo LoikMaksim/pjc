@@ -123,7 +123,7 @@ class JabberClient extends XMPP {
 		if($delay < 0)
 			$delay = 0;
 
-		$this->cronAddOnce($delay, array($this, 'pollMessageQueue'), 'JabberClient::pollMessageQueue');
+		$this->cronAddOnce($delay, array($this, 'pollMessageQueue'), array(), 'JabberClient::pollMessageQueue');
 		$this->messagesQueueLastSendTime = time() + $delay;
 	}
 

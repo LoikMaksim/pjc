@@ -32,6 +32,8 @@ class XMPP {
 
 	protected $useTls = true;
 
+	protected $waiterEvents = array();
+
 	function __construct($host, $port, $username, $password, $res = 'pajc', $priority = 1) {
 		$this->lastPingTime = time();
 		$this->connectionAddress = $host;
@@ -171,6 +173,10 @@ class XMPP {
 		$this->handlers[$selector][] = array('callback'=>$callback, 'params'=>$callbackParameters);
 	}
 
+	public function removeHandler($selector) {
+		unset($this->handlers[$selector]);
+	}
+
 	public function runEventBased() {
 		declare(ticks = 1);
 		pcntl_signal(SIGALRM, array($this, 'alarm'));
@@ -192,17 +198,24 @@ class XMPP {
 		$this->updateCronAlarm();
 	}
 
-	public function cronAddPeriodic($interval, $callback, $ident = null) {
+	public function cronAddPeriodic($interval, $callback, $callbackParameters = array(), $ident = null) {
 		$rule = array('interval'=>$interval, 'callback'=>$callback, 'lastCall'=>time());
-		$this->cronAddRule($interval > 0 ? $interval : 0, $callback, 'periodic', $ident);
+		$this->cronAddRule($interval > 0 ? $interval : 0, $callback, 'periodic', $callbackParameters, $ident);
 	}
 
-	public function cronAddOnce($timeout, $callback, $ident = null) {
-		$this->cronAddRule($timeout > 0 ? $timeout : 0, $callback, 'once', $ident);
+	public function cronAddOnce($timeout, $callback, $callbackParameters = array(), $ident = null) {
+		$this->cronAddRule($timeout > 0 ? $timeout : 0, $callback, 'once', $callbackParameters, $ident);
 	}
 
-	protected function cronAddRule($time, $callback, $type, $ident = null) {
-		$rule = array('type'=>$type, 'time'=>$time, 'callback'=>$callback, 'lastCall'=>time(), 'ident'=>$ident);
+	protected function cronAddRule($time, $callback, $type, $callbackParameters = array(), $ident = null) {
+		$rule = array(
+			'type'=>$type,
+			'time'=>$time,
+			'callback'=>$callback,
+			'callbackParameters'=>$callbackParameters,
+			'lastCall'=>time(),
+			'ident'=>$ident
+		);
 		$this->crontab[] = $rule;
 
 		$this->cronSortRuleset();
@@ -214,6 +227,13 @@ class XMPP {
 			if($ct['ident'] === $ident)
 				return true;
 		return false;
+	}
+
+	public function cronRemoveRuleByIdent($ident) {
+		foreach($this->crontab as $k=>$ct)
+			if($ct['ident'] === $ident)
+				unset($this->crontab[$k]);
+		$this->updateCronAlarm();
 	}
 
 	protected function cronSortRuleset() {
@@ -257,7 +277,7 @@ class XMPP {
 			$curTime = time();
 // 			var_dump($curTime - $ct['lastCall'], $ct['type']);
 			if($curTime - $ct['lastCall'] >= $ct['time']) {
-				call_user_func($ct['callback']);
+				call_user_func_array($ct['callback'], $ct['callbackParameters']);
 
 				switch($ct['type']) {
 					case 'periodic':
@@ -288,6 +308,48 @@ class XMPP {
 		Log::notice("Cron vacation time: $time");
 		return $time > 0 ? $time : 0;
 	}
+
+	/* ------------------------------------ waiter ------------------------- */
+
+	public function wait($selector, $timeout, $callback, $callbackParameters = array(), $timedOutCallback = null, $timedOutCallbackParameters = array()) {
+		if(isset($this->waiterEvents[$selector]))
+			throw new Exception("Duplicate selector `$selector` in waiter");
+		$cronGCIdent = 'waiter_'.$selector;
+
+		$this->waiterEvents[$selector] = array(
+				'callback' => $callback,
+				'callbackParameters' => $callbackParameters,
+				'timedOutCallback' => $timedOutCallback,
+				'timedOutCallbackParameters' => $timedOutCallbackParameters,
+				'cronGCIdent' => $cronGCIdent
+		);
+
+		$this->addHandler($selector, array($this, 'waiterStanzaHandler'), array($selector));
+		$this->cronAddOnce($timeout, array($this, 'waiterGCHandler'), array($selector));
+	}
+
+	protected function waiterStanzaHandler($xmpp, $element, $selector) {
+		if(!isset($this->waiterEvents[$selector]))
+			return;
+		$inf = $this->waiterEvents[$selector];
+		$this->cronRemoveRuleByIdent($inf['cronGCIdent']);
+		unset($this->waiterEvents[$selector]);
+
+		call_user_func_array($inf['callback'], array_merge(array($xmpp, $element), $inf['callbackParameters']));
+	}
+
+	protected function waiterGCHandler($selector) {
+		if(!isset($this->waiterEvents[$selector]))
+			return;
+		$inf = $this->waiterEvents[$selector];
+		$this->removeHandler($selector);
+		if($inf['timedOutCallback'])
+			call_user_func_array($inf['timedOutCallback'], $inf['timedOutCallbackParameters']);
+
+		unset($this->waiterEvents[$selector]);
+	}
+
+	/* ---------------------------------- misc ----------------------------- */
 
 	public function presence() {
 		$this->sendStanza(array(
