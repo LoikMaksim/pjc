@@ -69,14 +69,14 @@ class XMLStreamElementMY {
 	public function hasChild($childElementName) {
 		$ents = $this->childs($childElementName);
 		if(sizeof($ents) > 1)
-			throw new XMLStreamElementException('Multiple entries with same name');
+			throw new XMLStreamElementException("Multiple entries with same name `$childElementName`: {$this->dump()}");
 		return (bool)sizeof($ents);
 	}
 
 	public function child($childElementName) {
 		$ents = $this->childs($childElementName);
 		if(sizeof($ents) > 1)
-			throw new XMLStreamElementException('Multiple entries with same name');
+			throw new XMLStreamElementException("Multiple entries with same name `$childElementName`: {$this->dump()}");
 		elseif(!sizeof($ents))
 			throw new XMLStreamElementException("No child with requested name `$childElementName`: ".$this->dump());
 		return $ents[0];

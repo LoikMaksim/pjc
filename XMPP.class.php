@@ -50,7 +50,8 @@ class XMPP {
 	}
 
 	function __destruct() {
-		fclose($this->sock);
+		if($this->sock)
+			fclose($this->sock);
 	}
 
 	public function disableTls() {
