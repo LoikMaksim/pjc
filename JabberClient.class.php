@@ -13,11 +13,8 @@ class JabberClient extends XMPP {
 
 	protected $conferences = array();
 	protected $status = null;
-// 	protected $messagesQueuePollRequested = false;
-/*
-	function __construct($host, $port, $username, $password, $res = 'pajc') {
-		parent::__construct($host, $port, $username, $password, $res);
-	}*/
+
+	protected $waiterEvents = array();
 
 	function initiated() {
 		parent::initiated();
@@ -62,8 +59,8 @@ class JabberClient extends XMPP {
 		return $continueHandling;
 	}
 
-	function sendMessage($to, $body, $type = 'chat') {
-		return $this->message($to, $body, $type);
+	function sendMessage($to, $body, $type = 'chat', array $additionalElements = array()) {
+		return $this->message($to, $body, $type, $additionalElements);
 	}
 
 	function sendConfMessage($to, $body) {
@@ -79,13 +76,14 @@ class JabberClient extends XMPP {
 		return $nbody;
 	}
 
-	function message($to, $body, $type = 'chat') {
+	function message($to, $body, $type = 'chat', array $additionalElements = array()) {
 		if(!is_array($body))
 			$body = array('plain'=>$body);
 
 		$stanza = array(
 			'#name'=>'message',
 			'from'=>$this->realm,
+			'id'=>$this->genId(),
 			'to'=>$to,
 			'type'=>$type,
 		);
@@ -108,8 +106,11 @@ class JabberClient extends XMPP {
 		}
 
 		Log::notice('Sending message to '.$to.' ...');
+		$out = self::stanza($stanza);
+		foreach($additionalElements as $e)
+			$out->appendChild($e);
 
-		$this->sendStanza($stanza);
+		$this->send((string)$out);
 		Log::notice('Sended');
 	}
 
@@ -214,6 +215,46 @@ class JabberClient extends XMPP {
 	public function removeSubscription($jid) {
 		$this->sendStanza(array('#name'=>'presence', 'type'=>'unsubscribed', 'from'=>$this->shortJid(), 'to'=>$jid));
 		Log::notice("Reset subscription for `$jid`");
+	}
+
+	/* ------------------------------------ waiter ------------------------- */
+
+	public function wait($selector, $timeout, $callback, $callbackParameters = array(), $timedOutCallback = null, $timedOutCallbackParameters = array()) {
+		if(isset($this->waiterEvents[$selector]))
+			throw new Exception("Duplicate selector `$selector` in waiter");
+		$cronGCIdent = 'waiter_'.$selector;
+
+		$this->waiterEvents[$selector] = array(
+				'callback' => $callback,
+				'callbackParameters' => $callbackParameters,
+				'timedOutCallback' => $timedOutCallback,
+				'timedOutCallbackParameters' => $timedOutCallbackParameters,
+				'cronGCIdent' => $cronGCIdent
+		);
+
+		$this->addHandler($selector, array($this, 'waiterStanzaHandler'), array($selector));
+		$this->cronAddOnce($timeout, array($this, 'waiterGCHandler'), array($selector));
+	}
+
+	protected function waiterStanzaHandler($xmpp, $element, $selector) {
+		if(!isset($this->waiterEvents[$selector]))
+			return;
+		$inf = $this->waiterEvents[$selector];
+		$this->cronRemoveRuleByIdent($inf['cronGCIdent']);
+		unset($this->waiterEvents[$selector]);
+
+		call_user_func_array($inf['callback'], array_merge(array($xmpp, $element), $inf['callbackParameters']));
+	}
+
+	protected function waiterGCHandler($selector) {
+		if(!isset($this->waiterEvents[$selector]))
+			return;
+		$inf = $this->waiterEvents[$selector];
+		$this->removeHandler($selector);
+		if($inf['timedOutCallback'])
+			call_user_func_array($inf['timedOutCallback'], $inf['timedOutCallbackParameters']);
+
+		unset($this->waiterEvents[$selector]);
 	}
 
 	/* --------------------- client info --------------------------- */

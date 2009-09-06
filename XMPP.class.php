@@ -32,9 +32,7 @@ class XMPP {
 
 	protected $useTls = true;
 
-	protected $waiterEvents = array();
-
-	function __construct($host, $port, $username, $password, $res = 'pajc', $priority = 1) {
+	function __construct($host, $port, $username, $password, $res = 'pjc', $priority = 1) {
 		$this->lastPingTime = time();
 		$this->connectionAddress = $host;
 		if(preg_match('/^(.+?)@(.+)$/', $username, $m)) {
@@ -106,7 +104,7 @@ class XMPP {
 
 	protected function genId() {
 		static $lastId = 1;
-		return $lastId++;
+		return rand().rand().rand().'.'.($lastId++); // lol
 	}
 
 	protected function bindResource() {
@@ -310,46 +308,6 @@ class XMPP {
 		return $time > 0 ? $time : 0;
 	}
 
-	/* ------------------------------------ waiter ------------------------- */
-
-	public function wait($selector, $timeout, $callback, $callbackParameters = array(), $timedOutCallback = null, $timedOutCallbackParameters = array()) {
-		if(isset($this->waiterEvents[$selector]))
-			throw new Exception("Duplicate selector `$selector` in waiter");
-		$cronGCIdent = 'waiter_'.$selector;
-
-		$this->waiterEvents[$selector] = array(
-				'callback' => $callback,
-				'callbackParameters' => $callbackParameters,
-				'timedOutCallback' => $timedOutCallback,
-				'timedOutCallbackParameters' => $timedOutCallbackParameters,
-				'cronGCIdent' => $cronGCIdent
-		);
-
-		$this->addHandler($selector, array($this, 'waiterStanzaHandler'), array($selector));
-		$this->cronAddOnce($timeout, array($this, 'waiterGCHandler'), array($selector));
-	}
-
-	protected function waiterStanzaHandler($xmpp, $element, $selector) {
-		if(!isset($this->waiterEvents[$selector]))
-			return;
-		$inf = $this->waiterEvents[$selector];
-		$this->cronRemoveRuleByIdent($inf['cronGCIdent']);
-		unset($this->waiterEvents[$selector]);
-
-		call_user_func_array($inf['callback'], array_merge(array($xmpp, $element), $inf['callbackParameters']));
-	}
-
-	protected function waiterGCHandler($selector) {
-		if(!isset($this->waiterEvents[$selector]))
-			return;
-		$inf = $this->waiterEvents[$selector];
-		$this->removeHandler($selector);
-		if($inf['timedOutCallback'])
-			call_user_func_array($inf['timedOutCallback'], $inf['timedOutCallbackParameters']);
-
-		unset($this->waiterEvents[$selector]);
-	}
-
 	/* ---------------------------------- misc ----------------------------- */
 
 	public function presence() {
@@ -498,6 +456,11 @@ class XMPP {
 			$stanza['from'] = $this->realm;
 // var_dump((string)self::stanza($stanza));
 		$this->out->write((string)self::stanza($stanza));
+		return $stanza['id'];
+	}
+
+	function send($xmlString) {
+		$this->out->write((string)$xmlString);
 	}
 
 	function sendIq($type, $childs = array(), $id = null, $xmlns = 'jabber:client') {
