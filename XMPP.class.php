@@ -460,6 +460,7 @@ class XMPP {
 	}
 
 	function send($xmlString) {
+		Log::notice('Sending', $xmlString);
 		$this->out->write((string)$xmlString);
 	}
 
