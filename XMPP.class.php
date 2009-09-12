@@ -165,9 +165,14 @@ class XMPP {
 		Log::notice('Ping request');
 	}
 
-	public function addHandler($selector, $callback, $callbackParameters = array()) {
-		if(!isset($this->handlers[$selector]))
-			$this->handlers[$selector] = array();
+	public function addHandler($selector, $callback, $callbackParameters = array(), $extraPriority = false) {
+		if($extraPriority) {
+			if(!isset($this->handlers[$selector]))
+				$this->handlers = array($selector=>array()) + $this->handlers;
+		} else {
+			if(!isset($this->handlers[$selector]))
+				$this->handlers[$selector] = array();
+		}
 
 		$this->handlers[$selector][] = array('callback'=>$callback, 'params'=>$callbackParameters);
 	}
@@ -276,8 +281,6 @@ class XMPP {
 			$curTime = time();
 // 			var_dump($curTime - $ct['lastCall'], $ct['type']);
 			if($curTime - $ct['lastCall'] >= $ct['time']) {
-				call_user_func_array($ct['callback'], $ct['callbackParameters']);
-
 				switch($ct['type']) {
 					case 'periodic':
 						$ct['lastCall'] = $curTime;
@@ -291,6 +294,8 @@ class XMPP {
 						throw new Exception('Unknown crontab type `'.$ct['type'].'`');
 					break;
 				}
+
+				call_user_func_array($ct['callback'], $ct['callbackParameters']);
 			} else {
 				break;
 			}
@@ -337,7 +342,7 @@ class XMPP {
 				foreach($handlers as $hi) {
 					$handled = true;
 					if(call_user_func_array($hi['callback'], array_merge(array($this, $element), $hi['params'])) === false)
-						break;
+						break 2;
 				}
 			}
 		}
