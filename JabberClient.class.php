@@ -275,7 +275,7 @@ class JabberClient extends XMPP {
 				'xmlns'=>'jabber:iq:version',
 				array('#name'=>'name', 'PJC'),
 				array('#name'=>'version', '0.0.2'),
-				array('#name'=>'os', 'FreeBSD')
+				array('#name'=>'os', php_uname('s'))
 			)
 		));
 	}
