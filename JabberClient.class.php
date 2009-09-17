@@ -237,6 +237,8 @@ class JabberClient extends XMPP {
 	}
 
 	protected function waiterStanzaHandler($xmpp, $element, $selector) {
+		$this->removeHandler($selector);
+		Log::notice('Handlers', sizeof($this->handlers));
 		if(!isset($this->waiterEvents[$selector]))
 			return;
 		$inf = $this->waiterEvents[$selector];
@@ -248,10 +250,11 @@ class JabberClient extends XMPP {
 	}
 
 	protected function waiterGCHandler($selector) {
+		$this->removeHandler($selector);
+
 		if(!isset($this->waiterEvents[$selector]))
 			return;
 		$inf = $this->waiterEvents[$selector];
-		$this->removeHandler($selector);
 		if($inf['timedOutCallback'])
 			call_user_func_array($inf['timedOutCallback'], $inf['timedOutCallbackParameters']);
 
