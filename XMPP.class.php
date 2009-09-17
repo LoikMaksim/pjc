@@ -162,7 +162,7 @@ class XMPP {
 			array('#name'=>'ping', 'xmlns'=>'urn:xmpp:ping')
 		));
 
-		Log::notice('Ping request');
+		Log::debug('Ping request');
 	}
 
 	public function addHandler($selector, $callback, $callbackParameters = array(), $extraPriority = false) {
@@ -191,7 +191,7 @@ class XMPP {
 			if(!$elt)
 				break;
 			if(!$this->runHandlers($elt))
-				Log::notice('Unhandled event', $elt->dump());
+				Log::debug('Unhandled event', $elt->dump());
 		}
 	}
 
@@ -250,7 +250,7 @@ class XMPP {
 			$delay = $ct['time'] - (time() - $ct['lastCall']);
 			$inf .= ($ct['ident'] !== null ? "[{$ct['ident']}] " : '').(is_array($ct['callback']) ? get_class($ct['callback'][0])."::{$ct['callback'][1]}()" : $ct['callback'])." delay $delay ({$ct['type']})\n";
 		}
-		Log::notice('Crontab', $inf);
+		Log::debug('Crontab', $inf);
 	}
 
 	public static function cronQueueSortCb($a, $b) {
@@ -309,7 +309,7 @@ class XMPP {
 		} else {
 			$time = 24*3600;
 		}
-		Log::notice("Cron vacation time: $time");
+		Log::debug("Cron vacation time: $time");
 		return $time > 0 ? $time : 0;
 	}
 
@@ -329,9 +329,9 @@ class XMPP {
 		if($element->hasChild('error')) {
 			$err = $element->child('error');
 			$errName = $err->firstChild()->getName();
-			Log::notice('Ping response. Error #'.$err->getParam('code').' `'.$errName.'`');
+			Log::debug('Ping response. Error #'.$err->getParam('code').' `'.$errName.'`');
 		} else {
-			Log::notice('Ping response');
+			Log::debug('Ping response');
 		}
 	}
 
@@ -465,7 +465,7 @@ class XMPP {
 	}
 
 	function send($xmlString) {
-		Log::notice('Sending', $xmlString);
+		Log::debug('Sending', $xmlString);
 		$this->out->write((string)$xmlString);
 	}
 

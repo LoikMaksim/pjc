@@ -3,17 +3,32 @@
 	$Id$
 */
 class Log {
+	const NONE = 0;
+	const ERROR = 1;
+	const WARNING = 2;
+	const NOTICE = 4;
+	const DEBUG = 8;
+	const ALL = 255;
+
 	static protected $history = array();
 	static protected $historyMaxSize = 1;
+	static protected $verbosity = self::ALL;
 
 	static function warning($str, $data = null) {
-		self::write('WARNING', $str, $data);
+		if(self::$verbosity & self::WARNING)
+			self::write('WARNING', $str, $data);
 	}
 	static function error($str, $data = null) {
-		self::write('ERROR', $str, $data);
+		if(self::$verbosity & self::ERROR)
+			self::write('ERROR', $str, $data);
 	}
 	static function notice($str, $data = null) {
-		self::write('NOTICE', $str, $data);
+		if(self::$verbosity & self::NOTICE)
+			self::write('NOTICE', $str, $data);
+	}
+	static function debug($str, $data = null) {
+		if(self::$verbosity & self::DEBUG)
+			self::write('DEBUG', $str, $data);
 	}
 
 	static function write($type, $str, $data = null) {
@@ -48,5 +63,12 @@ class Log {
 
 	static function getHistory() {
 		return implode("\n", self::$history);
+	}
+
+	static function verbosity($verbosity = null) {
+		$oldVerbosity = self::$verbosity;
+		if($verbosity !== null)
+			self::$verbosity = $verbosity;
+		return $oldVerbosity;
 	}
 }

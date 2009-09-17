@@ -105,7 +105,7 @@ class JabberClient extends XMPP {
 			}
 		}
 
-		Log::notice('Sending message to '.$to.' ...');
+		Log::debug('Sending message to '.$to.' ...');
 		$out = self::stanza($stanza);
 		foreach($additionalElements as $e)
 			$out->appendChild($e);
@@ -134,15 +134,11 @@ class JabberClient extends XMPP {
 
 	protected function pollMessageQueue() {
 		// no alarm-safe
-		Log::notice('pollMessageQueue() ...');
-
 		if(sizeof($this->messagesQueue)) {
 			$message = array_shift($this->messagesQueue);
 			$this->message($message['to'], $message['body'], $message['type']);
 			$this->messagesQueueLastSendTime = time();
 		}
-
-		Log::notice('pollMessageQueue() ended');
 	}
 
 	/* -------------------------------- conference -------------------------- */
@@ -346,7 +342,7 @@ class JabberClient extends XMPP {
 
 	/* ---------------- predefined handlers -------------------- */
 	protected function onMessage($fromUser, $body, $subject, $elt) {
-		Log::notice('Message', $elt->dump());
+		Log::debug('Unhandled message', $elt->dump());
 	}
 
 	protected function onPrivateMessage($fromUser, $body, $subject, $elt) {}
