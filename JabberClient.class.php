@@ -238,7 +238,7 @@ class JabberClient extends XMPP {
 
 	protected function waiterStanzaHandler($xmpp, $element, $selector) {
 		$this->removeHandler($selector);
-		Log::notice('Handlers', sizeof($this->handlers));
+
 		if(!isset($this->waiterEvents[$selector]))
 			return;
 		$inf = $this->waiterEvents[$selector];
