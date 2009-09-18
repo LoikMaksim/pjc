@@ -268,7 +268,7 @@ class XMPP {
 
 	protected function updateCronAlarm() {
 		$timeout = null;
-		while(($timeout = $this->cronGetVacationTime()) == 0)
+		while(($timeout = $this->cronGetVacationTime()) <= 0)
 			$this->cron();
 
 		pcntl_alarm($timeout);
