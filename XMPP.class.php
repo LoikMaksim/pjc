@@ -267,11 +267,11 @@ class XMPP {
 	}
 
 	protected function updateCronAlarm() {
-		$timeout = $this->cronGetVacationTime();
-		if($timeout == 0)
+		$timeout = null;
+		while(($timeout = $this->cronGetVacationTime()) == 0)
 			$this->cron();
-		else
-			pcntl_alarm($timeout);
+
+		pcntl_alarm($timeout);
 	}
 
 	protected function cron() {
