@@ -44,7 +44,7 @@ class JabberClient extends XMPP {
 
 		$continueHandling = true;
 
-		if($elt->param('type') == 'groupchat') {
+		if($elt->hasParam('type') && $elt->param('type') == 'groupchat') {
 			$conferenceAddress = XMPP::parseJid($elt->param('from'), 'short');
 			if(!$this->joinedToConference($conferenceAddress))
 				throw new Exception("Message from unjoined conference `$conferenceAddress`");
