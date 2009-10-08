@@ -189,7 +189,7 @@ class JabberClient extends XMPP {
 
 	/* -------------------------------- subscription ------------------------ */
 	protected function subscribeRequestHandler($xmpp, $element) {
-		$fromUser = new User($this, $element->getParam('from'), $element);
+		$fromUser = new User($this, $element->getParam('from'));
 		return $this->onSubscribeRequest($fromUser, $element);
 	}
 
