@@ -229,7 +229,7 @@ class JabberClient extends XMPP {
 		);
 
 		$this->addHandler($selector, array($this, 'waiterStanzaHandler'), array($selector), true);
-		$this->cronAddOnce($timeout, array($this, 'waiterGCHandler'), array($selector));
+		$this->cronAddOnce($timeout, array($this, 'waiterGCHandler'), array($selector), $cronGCIdent);
 	}
 
 	protected function waiterStanzaHandler($xmpp, $element, $selector) {

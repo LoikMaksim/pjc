@@ -234,9 +234,15 @@ class XMPP {
 	}
 
 	public function cronRemoveRuleByIdent($ident) {
-		foreach($this->crontab as $k=>$ct)
-			if($ct['ident'] === $ident)
+		$removed = 0;
+		foreach($this->crontab as $k=>$ct) {
+			if($ct['ident'] === $ident) {
 				unset($this->crontab[$k]);
+				$removed++;
+			}
+		}
+		$this->cronSortRuleset();
+		Log::debug("Removed $removed cron rules by ident '$ident'");
 		$this->updateCronAlarm();
 	}
 
