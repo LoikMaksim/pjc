@@ -148,8 +148,6 @@ class XMLStreamElementMY {
 	public function __toString() {
 		$dom = $this->toDomDocument();
 		$xml = $dom->saveXML($dom->firstChild);
-		if(strlen($this->additionalPlainXML))
-			$xml .= $this->additionalPlainXML;
 		return $xml;
 	}
 
@@ -163,6 +161,12 @@ class XMLStreamElementMY {
 
 		foreach($this->textNodes as $text)
 			$elt->appendChild($dom->createTextNode($text));
+
+		if(strlen($this->additionalPlainXML)) {
+			$f = $dom->createDocumentFragment();
+			$f->appendXML($this->additionalPlainXML);
+			$elt->appendChild($f);
+		}
 
 		return $elt;
 	}
