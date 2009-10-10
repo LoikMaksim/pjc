@@ -41,8 +41,11 @@ class XMLStreamElementMY {
 
 	public function appendPlainXML($xml) {
 		$dom = new DOMDocument('1.0', 'UTF-8');
-		$dom->loadXML($xml);
-		$this->additionalPlainXML .= $dom->saveXML();
+		$f = $dom->createDocumentFragment();
+		if(!@$f->appendXML($xml))
+			throw new XMLStreamElementException('Invalid XML fragment: '.$xml);
+
+		$this->additionalPlainXML .= $dom->saveXML($f);
 	}
 
 	//-

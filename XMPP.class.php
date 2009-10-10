@@ -104,7 +104,7 @@ class XMPP {
 
 	protected function genId() {
 		static $lastId = 1;
-		return rand().rand().rand().'.'.($lastId++); // lol
+		return sprintf('%u.%x%x%x', $lastId++, mt_rand(), mt_rand(), mt_rand()); // lol
 	}
 
 	protected function bindResource() {
