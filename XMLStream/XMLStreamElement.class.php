@@ -40,7 +40,9 @@ class XMLStreamElementMY {
 	}
 
 	public function appendPlainXML($xml) {
-		$this->additionalPlainXML .= $xml;
+		$dom = new DOMDocument('1.0', 'UTF-8');
+		$dom->loadXML($xml);
+		$this->additionalPlainXML .= $dom->saveXML();
 	}
 
 	//-
@@ -133,46 +135,38 @@ class XMLStreamElementMY {
 		return $out;
 	}
 
-	static function escapeText($str) {
-		return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
-	}
-
-	static function escapeParam($str) {
-		return self::escapeText($str);
-	}
-
-	static function quoteParam($str) {
-		return "'".self::escapeParam($str)."'";
+	public function prettyXML() {
+		$dom = $this->toDomDocument();
+		$dom->preserveWhiteSpace = false;
+		$dom->formatOutput = true;
+		return $dom->saveXML($dom->firstChild);
 	}
 
 	public function __toString() {
-		$xml = "<{$this->name}";
-
-		$psa = array();
-		foreach($this->params as $name=>$value) {
-			if($value === true)
-				$psa[] = $name;
-			else
-				$psa[] = "$name=".self::quoteParam($value);
-		}
-		if(sizeof($psa))
-			$xml .= ' '.implode(' ', $psa);
-		unset($psa);
-
-		$content = self::escapeText($this->getText());
-		if(sizeof($this->childs)) {
-			foreach($this->childs as $child)
-				$content .= (string)$child;
-		}
-
+		$dom = $this->toDomDocument();
+		$xml = $dom->saveXML($dom->firstChild);
 		if(strlen($this->additionalPlainXML))
-			$content .= $this->additionalPlainXML;
-
-		if(strlen($content))
-			$xml .= '>'.$content.'</'.$this->name.'>';
-		else
-			$xml .= ' />';
-
+			$xml .= $this->additionalPlainXML;
 		return $xml;
+	}
+
+	public function toDomElement(DOMDocument $dom) {
+		$elt = $dom->createElement($this->name);
+		foreach($this->params as $n=>$v)
+			$elt->setAttribute($n, $v);
+
+		foreach($this->childs as $child)
+			$elt->appendChild($child->toDomElement($dom));
+
+		foreach($this->textNodes as $text)
+			$elt->appendChild($dom->createTextNode($text));
+
+		return $elt;
+	}
+
+	public function toDomDocument() {
+		$dom = new DOMDocument('1.0', 'UTF-8');
+		$dom->appendChild($this->toDomElement($dom));
+		return $dom;
 	}
 }
