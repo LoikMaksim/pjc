@@ -1,12 +1,12 @@
 <?php
-require_once('User.class.php');
-require_once('JabberClient.class.php');
+require_once('PJC_Sender.class.php');
+require_once('PJC_JabberClient.class.php');
 
-class Conference {
+class PJC_Conference {
 	protected $users;
 	protected $address;
 
-	function __construct(JabberClient $xmpp, $address) {
+	function __construct(PJC_JabberClient $xmpp, $address) {
 		$this->xmpp = $xmpp;
 		$this->address = $address;
 	}

@@ -1,15 +1,15 @@
 <?php
-require_once('JabberClient.class.php');
-require_once('Conference.class.php');
+require_once('PJC_JabberClient.class.php');
+require_once('PJC_Conference.class.php');
 
-class User {
+class PJC_Sender {
 	static $numInstances = 0;
 
 	protected $xmpp;
 	protected $jid;
 	protected $conference;
 
-	function __construct(JabberClient $xmpp, $jid) {
+	function __construct(PJC_JabberClient $xmpp, $jid) {
 		$this->xmpp = $xmpp;
 		$this->jid = $jid;
 		self::$numInstances++;
@@ -21,7 +21,7 @@ class User {
 
 
 	public function shortJid() {
-		return XMPP::parseJid($this->jid, 'short');
+		return PJC_XMPP::parseJid($this->jid, 'short');
 	}
 
 	public function jid() {

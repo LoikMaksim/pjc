@@ -1,7 +1,7 @@
 <?php
-require_once(dirname(__FILE__).'/../JabberClient.class.php');
+require_once(dirname(__FILE__).'/../PJC_JabberClient.class.php');
 
-class MyJabberBot extends JabberClient {
+class MyJabberBot extends PJC_JabberClient {
 	/*
 		Base event.
 		Runs when message received

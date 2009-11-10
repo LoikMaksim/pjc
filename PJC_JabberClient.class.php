@@ -2,11 +2,11 @@
 /*
 	$Id$
 */
-require_once('XMPP.class.php');
-require_once('User.class.php');
-require_once('Conference.class.php');
+require_once('PJC_XMPP.class.php');
+require_once('PJC_Sender.class.php');
+require_once('PJC_Conference.class.php');
 
-class JabberClient extends XMPP {
+class PJC_JabberClient extends PJC_XMPP {
 	protected $messagesQueue = array();
 	protected $messagesQueueInterval = 1;
 	protected $messagesQueueLastSendTime;
@@ -31,7 +31,7 @@ class JabberClient extends XMPP {
 	}
 
 	function shortJid() {
-		return XMPP::parseJid($this->realm, 'short');
+		return PJC_XMPP::parseJid($this->realm, 'short');
 	}
 
 	/* ----------------------------------- messages --------------------------*/
@@ -39,13 +39,13 @@ class JabberClient extends XMPP {
 		if($elt->hasParam('type') && $elt->param('type')==='error')
 			return;
 
-		$fromUser = new User($this, $elt->param('from'));
+		$fromUser = new PJC_Sender($this, $elt->param('from'));
 		$message = $elt->child('body')->getText();
 
 		$continueHandling = true;
 
 		if($elt->hasParam('type') && $elt->param('type') == 'groupchat') {
-			$conferenceAddress = XMPP::parseJid($elt->param('from'), 'short');
+			$conferenceAddress = PJC_XMPP::parseJid($elt->param('from'), 'short');
 			if(!$this->joinedToConference($conferenceAddress))
 				throw new Exception("Message from unjoined conference `$conferenceAddress`");
 			$continueHandling = $this->onConferenceMessage($this->conferences[$conferenceAddress], $fromUser, $message, $elt); //!
@@ -71,7 +71,7 @@ class JabberClient extends XMPP {
 		$nbody = iconv('utf-8', 'utf-8//IGNORE', $body);
 		if($nbody !== $body) {
 			$nbody = '[MESSAGE WAS TRUNCATED. NON-UTF8 CHARACTERS DETECTED]'.$nbody;
-			Log::warning('Non-utf8 string, truncated', $body);
+			$this->log->warning('Non-utf8 string, truncated', $body);
 		}
 		return $nbody;
 	}
@@ -89,6 +89,7 @@ class JabberClient extends XMPP {
 		);
 
 		foreach($body as $type=>$message) {
+			//! тут какая-то херня. Надо разобраться почему тут нет эскейпа
 			$message = $this->_messageTruncateInvalidCharset($message);
 			if($type === 'xhtml') {
 				$stanza[] = array(
@@ -105,13 +106,13 @@ class JabberClient extends XMPP {
 			}
 		}
 
-		Log::debug('Sending message to '.$to.' ...');
+		$this->log->debug('Sending message to '.$to.' ...');
 		$out = self::stanza($stanza);
 		foreach($additionalElements as $e)
 			$out->appendChild($e);
 
 		$this->send((string)$out);
-		Log::notice('Sended');
+		$this->log->notice('Sended');
 	}
 
 	/* ------------------------------- messages queue ------------------------*/
@@ -176,41 +177,41 @@ class JabberClient extends XMPP {
 	}
 
 	protected function conferenceUserPresenceHandler($xmpp, $elt) {
-		$conferenceAddress = XMPP::parseJid($elt->param('from'), 'short');
+		$conferenceAddress = PJC_XMPP::parseJid($elt->param('from'), 'short');
 		if($this->joinedToConference($conferenceAddress))
 			$conference = $this->conferences[$conferenceAddress]; //!
 		else
 			$conference = $this->registerConference($conferenceAddress);
 
-		$user = new User($this, $elt->param('from'));
+		$user = new PJC_Sender($this, $elt->param('from'));
 		$user->fromConference($conference);
 		$conference->addParticipant($user);
 	}
 
 	/* -------------------------------- subscription ------------------------ */
 	protected function subscribeRequestHandler($xmpp, $element) {
-		$fromUser = new User($this, $element->getParam('from'));
+		$fromUser = new PJC_Sender($this, $element->getParam('from'));
 		return $this->onSubscribeRequest($fromUser, $element);
 	}
 
 	public function acceptSubscription($jid) {
 		$this->sendStanza(array('#name'=>'presence', 'type'=>'subscribed', 'from'=>$this->shortJid(), 'to'=>$jid));
-		Log::notice("Subscription request from `$jid` accepted");
+		$this->log->notice("Subscription request from `$jid` accepted");
 	}
 
 	public function requestSubscription($jid) {
 		$this->sendStanza(array('#name'=>'presence', 'type'=>'subscribe', 'from'=>$this->shortJid(), 'to'=>$jid));
-		Log::notice("Subscription request to `$jid` sended");
+		$this->log->notice("Subscription request to `$jid` sended");
 	}
 
 	public function resetSubscription($jid) {
 		$this->sendStanza(array('#name'=>'presence', 'type'=>'unsubscribe', 'from'=>$this->shortJid(), 'to'=>$jid));
-		Log::notice("Reset subscription for `$jid`");
+		$this->log->notice("Reset subscription for `$jid`");
 	}
 
 	public function removeSubscription($jid) {
 		$this->sendStanza(array('#name'=>'presence', 'type'=>'unsubscribed', 'from'=>$this->shortJid(), 'to'=>$jid));
-		Log::notice("Reset subscription for `$jid`");
+		$this->log->notice("Reset subscription for `$jid`");
 	}
 
 	/* ------------------------------------ waiter ------------------------- */
@@ -342,7 +343,7 @@ class JabberClient extends XMPP {
 
 	/* ---------------- predefined handlers -------------------- */
 	protected function onMessage($fromUser, $body, $subject, $elt) {
-		Log::debug('Unhandled message', $elt->dump());
+		$this->log->debug('Unhandled message', $elt->dump());
 	}
 
 	protected function onPrivateMessage($fromUser, $body, $subject, $elt) {}
@@ -350,7 +351,7 @@ class JabberClient extends XMPP {
 
 	protected function onSessionStarted() {}
 	protected function onSubscribeRequest($fromUser, $elt) {
-		Log::notice('Subscription Request', $elt->dump());
+		$this->log->notice('Subscription Request', $elt->dump());
 	}
 
 	/*  ------------------ cron periodic ----------------------- */

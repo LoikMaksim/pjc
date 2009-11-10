@@ -4,11 +4,11 @@
 */
 
 require_once('XMLStream/XMLStream.class.php');
-require_once('Log.class.php');
-require_once('exceptions/NetworkException.class.php');
-require_once('exceptions/NotAuthorizedException.class.php');
+require_once('PJC_Log.class.php');
+require_once('exceptions/PJC_NetworkException.class.php');
+require_once('exceptions/PJC_NotAuthorizedException.class.php');
 
-class XMPP {
+class PJC_XMPP {
 	protected $host;
 	protected $port;
 
@@ -32,7 +32,11 @@ class XMPP {
 
 	protected $useTls = true;
 
+	protected $log = null;
+
 	function __construct($host, $port, $username, $password, $res = 'pjc', $priority = 1) {
+		$this->initDefaultLogger();
+
 		$this->lastPingTime = time();
 		$this->connectionAddress = $host;
 		if(preg_match('/^(.+?)@(.+)$/', $username, $m)) {
@@ -62,7 +66,7 @@ class XMPP {
 
 		$this->sock = @fsockopen($this->connectionAddress, $this->port, $errno, $errstr);
 		if(!$this->sock)
-			throw new NetworkException($errstr, $errno);
+			throw new PJC_NetworkException($errstr, $errno);
 		stream_set_blocking($this->sock, 0);
 
 		$this->in = new XMLStream($this->sock);
@@ -73,7 +77,7 @@ class XMPP {
 		$this->out->write('<stream:stream xmlns="jabber:client" to="'.$this->host.'" version="1.0" xmlns:stream="http://etherx.jabber.org/streams">');
 		$this->in->readNode('stream:stream');
 		$this->in->readElement('stream:features');
-		Log::notice('Stream started');
+		$this->log->notice('Stream started');
 	}
 
 	protected function startTls() {
@@ -82,7 +86,7 @@ class XMPP {
 
 		/*!TODO error handling */
 		stream_socket_enable_crypto($this->sock, true, STREAM_CRYPTO_METHOD_SSLv23_CLIENT);
-		Log::notice('TLS started');
+		$this->log->notice('TLS started');
 	}
 
 	protected function authorize() {
@@ -95,11 +99,11 @@ class XMPP {
 
 		$elt = $this->in->readElement();
 		if($elt->getName() == 'failure')
-			throw new NotAuthorizedException('Not authorized');
+			throw new PJC_NotAuthorizedException('Not authorized');
 		elseif($elt->getName() != 'success')
-			throw new NotAuthorizedException("Strange message:\n".$elt->dump());
+			throw new PJC_NotAuthorizedException("Strange message:\n".$elt->dump());
 
-		Log::notice('Authorized');
+		$this->log->notice('Authorized');
 	}
 
 	protected function genId() {
@@ -120,7 +124,7 @@ class XMPP {
 		));
 		$elt = $this->in->readElement('iq');
 		$this->realm = $elt->child('bind')->child('jid')->getText();
-		Log::notice('Resource binded. JID: '.$this->realm);
+		$this->log->notice('Resource binded. JID: '.$this->realm);
 	}
 
 	function initiate() {
@@ -147,7 +151,7 @@ class XMPP {
 		$this->presence();
 
 		$this->initiated();
-		Log::notice('Session initiated');
+		$this->log->notice('Session initiated');
 	}
 
 	protected function initiated() {
@@ -162,7 +166,7 @@ class XMPP {
 			array('#name'=>'ping', 'xmlns'=>'urn:xmpp:ping')
 		));
 
-		Log::debug('Ping request');
+		$this->log->debug('Ping request');
 	}
 
 	public function addHandler($selector, $callback, $callbackParameters = array(), $extraPriority = false) {
@@ -191,7 +195,7 @@ class XMPP {
 			if(!$elt)
 				break;
 			if(!$this->runHandlers($elt))
-				Log::debug('Unhandled event', $elt->dump());
+				$this->log->debug('Unhandled event', $elt->dump());
 		}
 	}
 
@@ -242,12 +246,12 @@ class XMPP {
 			}
 		}
 		$this->cronSortRuleset();
-		Log::debug("Removed $removed cron rules by ident '$ident'");
+		$this->log->debug("Removed $removed cron rules by ident '$ident'");
 		$this->updateCronAlarm();
 	}
 
 	protected function cronSortRuleset() {
-		usort($this->crontab, 'XMPP::cronQueueSortCb');
+		usort($this->crontab, 'PJC_XMPP::cronQueueSortCb');
 		$this->cronPrintRuleset();
 	}
 	protected function cronPrintRuleset() {
@@ -256,7 +260,7 @@ class XMPP {
 			$delay = $ct['time'] - (time() - $ct['lastCall']);
 			$inf .= ($ct['ident'] !== null ? "[{$ct['ident']}] " : '').(is_array($ct['callback']) ? get_class($ct['callback'][0])."::{$ct['callback'][1]}()" : $ct['callback'])." delay $delay ({$ct['type']})\n";
 		}
-		Log::debug('Crontab', $inf);
+		$this->log->debug('Crontab', $inf);
 	}
 
 	public static function cronQueueSortCb($a, $b) {
@@ -315,7 +319,7 @@ class XMPP {
 		} else {
 			$time = 24*3600;
 		}
-		Log::debug("Cron vacation time: $time");
+		$this->log->debug("Cron vacation time: $time");
 		return $time > 0 ? $time : 0;
 	}
 
@@ -335,9 +339,9 @@ class XMPP {
 		if($element->hasChild('error')) {
 			$err = $element->child('error');
 			$errName = $err->firstChild()->getName();
-			Log::debug('Ping response. Error #'.$err->getParam('code').' `'.$errName.'`');
+			$this->log->debug('Ping response. Error #'.$err->getParam('code').' `'.$errName.'`');
 		} else {
-			Log::debug('Ping response');
+			$this->log->debug('Ping response');
 		}
 	}
 
@@ -471,7 +475,7 @@ class XMPP {
 	}
 
 	function send($xmlString) {
-		Log::debug('Sending', $xmlString);
+		$this->log->debug('Sending', $xmlString);
 		$this->out->write((string)$xmlString);
 	}
 
@@ -486,5 +490,17 @@ class XMPP {
 		);
 		$r = array_merge($r, $childs);
 		$this->sendStanza($r);
+	}
+
+	function setLogger($logger) {
+		$this->log = $logger;
+	}
+
+	function getLogger() {
+		return $this->log;
+	}
+
+	function initDefaultLogger() {
+		$this->setLogger(new PJC_Log);
 	}
 }
