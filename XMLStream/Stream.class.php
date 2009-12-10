@@ -13,6 +13,9 @@ class Stream {
 	private $streamBufferMaxSize = 65536;
 	private $streamEof = false;
 
+	private $selectTimeout = 600;
+	private $onSelectCallback = null;
+
 	public $bytesRead = 0;
 	public $bytesWritten = 0;
 // 	protected $streamLastErrno = false;
@@ -62,12 +65,16 @@ class Stream {
 			$this->streamErrorHandlingStart();
 			$readed = '';
 			while(true) {
+				$this->runOnSelect();
+				$timeoutSec = (int)$this->selectTimeout;
+				$timeoutUSec = ($this->selectTimeout - $timeoutSec) * 1000000;
+
 				$readFds = array($this->streamFd);
 				$writeFds = null;
 				$exceptFds = null;
 
 				try {
-					$s = stream_select($readFds, $writeFds, $exceptFds, 600, 0);
+					$s = stream_select($readFds, $writeFds, $exceptFds, $timeoutSec, $timeoutUSec);
 
 					if($s) {
 						$readed = fread($this->streamFd, $toRead);
@@ -103,6 +110,19 @@ class Stream {
 			return strlen($readed) ? strlen($readed) : null;
 		}
 		return 0;
+	}
+
+	protected function runOnSelect() {
+		if($this->onSelectCallback)
+			call_user_func($this->onSelectCallback);
+	}
+
+	public function registerOnSelectCallback($cb) {
+		$this->onSelectCallback = $cb;
+	}
+
+	public function setSelectTimeout($timeout) {
+		$this->selectTimeout = $timeout;
 	}
 
 	final public function unread($data) {

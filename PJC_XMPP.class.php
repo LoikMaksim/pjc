@@ -186,8 +186,7 @@ class PJC_XMPP {
 	}
 
 	public function runEventBased() {
-		declare(ticks = 1);
-		pcntl_signal(SIGALRM, array($this, 'alarm'));
+		$this->in->registerOnSelectCallback(array($this, 'alarm'));
 		$this->updateCronAlarm();
 
 		while(true) {
@@ -281,7 +280,7 @@ class PJC_XMPP {
 		while(($timeout = $this->cronGetVacationTime()) <= 0)
 			$this->cron();
 
-		pcntl_alarm($timeout);
+		$this->in->setSelectTimeout($timeout);
 	}
 
 	protected function cron() {
