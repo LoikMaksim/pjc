@@ -34,6 +34,8 @@ class PJC_XMPP {
 
 	protected $log = null;
 
+	protected $initiated = false;
+
 	function __construct($host, $port, $username, $password, $res = 'pjc', $priority = 1) {
 		$this->initDefaultLogger();
 
@@ -152,6 +154,7 @@ class PJC_XMPP {
 
 		$this->initiated();
 		$this->log->notice('Session initiated');
+		$this->initiated = true;
 	}
 
 	protected function initiated() {
@@ -186,6 +189,8 @@ class PJC_XMPP {
 	}
 
 	public function runEventBased() {
+		if(!$this->initiated)
+			$this->initiate();
 		$this->in->registerOnSelectCallback(array($this, 'alarm'));
 		$this->updateCronAlarm();
 

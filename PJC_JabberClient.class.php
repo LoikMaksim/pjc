@@ -21,6 +21,8 @@ class PJC_JabberClient extends PJC_XMPP {
 
 		$this->addHandler('message:has(body)', array($this, 'messageHandler'));
 		$this->addHandler('presence[type=subscribe]', array($this, 'subscribeRequestHandler'));
+		$this->addHandler('presence[type=unsubscribed]', array($this, 'unsubscribedHandler'));
+		$this->addHandler('presence[type=unsubscribe]', array($this, 'unsubscribeHandler'));
 		$this->addHandler('presence:has(x[xmlns=http://jabber.org/protocol/muc#user])', array($this, 'conferenceUserPresenceHandler'));
 		$this->addHandler('iq[type=get]:has(query[xmlns=jabber:iq:version])', array($this, 'versionRequestHandler'));
 
@@ -194,6 +196,16 @@ class PJC_JabberClient extends PJC_XMPP {
 		return $this->onSubscribeRequest($fromUser, $element);
 	}
 
+	protected function unsubscribedHandler($xmpp, $element) {
+		$fromUser = new PJC_Sender($this, $element->getParam('from'));
+		return $this->onUnsubscribed($fromUser, $element);
+	}
+
+	protected function unsubscribeHandler($xmpp, $element) {
+		$fromUser = new PJC_Sender($this, $element->getParam('from'));
+		return $this->onUnsubscribe($fromUser, $element);
+	}
+
 	public function acceptSubscription($jid) {
 		$this->sendStanza(array('#name'=>'presence', 'type'=>'subscribed', 'from'=>$this->shortJid(), 'to'=>$jid));
 		$this->log->notice("Subscription request from `$jid` accepted");
@@ -352,6 +364,12 @@ class PJC_JabberClient extends PJC_XMPP {
 	protected function onSessionStarted() {}
 	protected function onSubscribeRequest($fromUser, $elt) {
 		$this->log->notice('Subscription Request', $elt->dump());
+	}
+	protected function onUnsubscribed($fromUser, $stanza) {
+		$this->log->notice('`Unsubscribed` message received', $stanza->dump());
+	}
+	protected function onUnsubscribe($fromUser, $stanza) {
+		$this->log->notice('`Unsubscribe` message received', $stanza->dump());
 	}
 
 	/*  ------------------ cron periodic ----------------------- */

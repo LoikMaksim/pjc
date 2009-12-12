@@ -28,6 +28,10 @@ class PJC_Sender {
 		return $this->jid;
 	}
 
+	public function resource() {
+		return PJC_XMPP::parseJid($this->jid, 'resource');
+	}
+
 	/* ------------------------- messages ------------------------------- */
 
 	public function sendMessage($body) {
