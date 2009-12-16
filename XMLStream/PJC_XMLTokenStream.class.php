@@ -3,9 +3,10 @@
 	$Id$
 */
 
-require_once('XMLTokenStreamException.class.php');
-require_once('Stream.class.php');
-class XMLTokenStream extends Stream {
+require_once('PJC_XMLTokenStreamException.class.php');
+require_once('PJC_Stream.class.php');
+
+class PJC_XMLTokenStream extends PJC_Stream {
 	protected $extraTokenStack = array();
 	public function readToken() {
 		if(sizeof($this->extraTokenStack))
@@ -30,7 +31,7 @@ class XMLTokenStream extends Stream {
 		}
 
 		if($token === null)
-			throw new XMLTokenStreamException('Unexpected end of stream near "'.substr($this->readAll(), -100).'"');
+			throw new PJC_XMLTokenStreamException('Unexpected end of stream near "'.substr($this->readAll(), -100).'"');
 
 		return $token;
 	}

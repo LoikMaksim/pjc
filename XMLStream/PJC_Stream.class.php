@@ -3,9 +3,11 @@
 	$Id$
 */
 
-require_once('StreamException.class.php');
+require_once('PJC_StreamException.class.php');
+
 declare(ticks = 1);
-class Stream {
+
+class PJC_Stream {
 	private $streamFd;
 	private $streamIsFdOwner = false;
 	private $streamBuffer = '';
@@ -41,11 +43,11 @@ class Stream {
 	function fuckingStreamErrorHandler($errno, $errstr) {
 // 		echo $errstr, "\n";
 		if(preg_match('/^stream_select\(\).* \[(\d+)\]: (.*?) \(.*/', $errstr, $m))
-			throw new StreamException('stream_select(): '.$m[2], (int)$m[1]);
+			throw new PJC_StreamException('stream_select(): '.$m[2], (int)$m[1]);
 		elseif(preg_match('/^(.*?)\(\).*errno\=(\d+) (.*?)$/', $errstr, $m))
-			throw new StreamException($m[1].'(): '.$m[3], (int)$m[2]);
+			throw new PJC_StreamException($m[1].'(): '.$m[3], (int)$m[2]);
 		else
-			throw new StreamException($errstr/*, $errno*/);
+			throw new PJC_StreamException($errstr/*, $errno*/);
 
 		return true;
 	}
@@ -81,7 +83,7 @@ class Stream {
 
 						if($readed === false || $readed === 0) {
 							if(!feof($this->streamFd))
-								throw new StreamException('read() error');
+								throw new PJC_StreamException('read() error');
 							$this->streamEof = true;
 							break;
 						} elseif(!strlen($readed)) {
@@ -99,7 +101,7 @@ class Stream {
 					$this->bytesRead += strlen($readed);
 					$this->streamBuffer .= $readed;
 					break;
-				} catch(StreamException $e) {
+				} catch(PJC_StreamException $e) {
 					if($e->getCode() === 4) // EINTR
 						continue;
 					else
@@ -248,7 +250,7 @@ class Stream {
 				for($written = 0; $written<strlen($string); $written+=$count) {
 					$count = fwrite($this->streamFd, substr($string, $written));
 					if(!$count) { // strange case
-						throw new StreamException(
+						throw new PJC_StreamException(
 							'Strange behaviour of fwrite():'.
 								' returned '.var_export($count, true).','.
 								' feof() is '.var_export(feof($this->streamFd), true)
@@ -257,7 +259,7 @@ class Stream {
 					$this->bytesWritten += $count;
 				}
 				break;
-			} catch(StreamException $e) {
+			} catch(PJC_StreamException $e) {
 				if($e->getCode() == 35) { // EAGAIN
 					usleep(1000000*0.1);
 					continue;

@@ -3,7 +3,7 @@
 	$Id$
 */
 
-class XMLStreamNode {
+class PJC_XMLStreamNode {
 	static $numInstances = 0;
 
 	const TYPE_XML_DECLARATION = 'xml declaration';

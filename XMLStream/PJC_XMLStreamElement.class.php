@@ -3,9 +3,9 @@
 	$Id$
 */
 
-require_once('XMLStreamElementException.class.php');
+require_once('PJC_XMLStreamElementException.class.php');
 
-class XMLStreamElementMY {
+class PJC_XMLStreamElement {
 	static $numInstances = 0;
 	protected $name;
 
@@ -43,7 +43,7 @@ class XMLStreamElementMY {
 		$dom = new DOMDocument('1.0', 'UTF-8');
 		$f = $dom->createDocumentFragment();
 		if(!@$f->appendXML($xml))
-			throw new XMLStreamElementException('Invalid XML fragment: '.$xml);
+			throw new PJC_XMLStreamElementException('Invalid XML fragment: '.$xml);
 
 		$this->additionalPlainXML .= $dom->saveXML($f);
 	}
@@ -74,16 +74,16 @@ class XMLStreamElementMY {
 	public function hasChild($childElementName) {
 		$ents = $this->childs($childElementName);
 		if(sizeof($ents) > 1)
-			throw new XMLStreamElementException("Multiple entries with same name `$childElementName`: {$this->dump()}");
+			throw new PJC_XMLStreamElementException("Multiple entries with same name `$childElementName`: {$this->dump()}");
 		return (bool)sizeof($ents);
 	}
 
 	public function child($childElementName) {
 		$ents = $this->childs($childElementName);
 /*		if(sizeof($ents) > 1)
-			throw new XMLStreamElementException("Multiple entries with same name `$childElementName`: {$this->dump()}");
+			throw new PJC_XMLStreamElementException("Multiple entries with same name `$childElementName`: {$this->dump()}");
 		else*/if(!sizeof($ents))
-			throw new XMLStreamElementException("No child with requested name `$childElementName`: ".$this->dump());
+			throw new PJC_XMLStreamElementException("No child with requested name `$childElementName`: ".$this->dump());
 		return $ents[0];
 	}
 
@@ -91,7 +91,7 @@ class XMLStreamElementMY {
 		if(sizeof($this->childs))
 			return $this->childs[0];
 		else
-			throw new XMLStreamElementException('Element has no childs');
+			throw new PJC_XMLStreamElementException('Element has no childs');
 	}
 
 	public function hasParam($paramName) {
@@ -100,7 +100,7 @@ class XMLStreamElementMY {
 
 	public function param($paramName) {
 		if(!$this->hasParam($paramName))
-			throw new XMLStreamElementException('Element does not have requested param `'.$paramName.'`');
+			throw new PJC_XMLStreamElementException('Element does not have requested param `'.$paramName.'`');
 		return $this->params[$paramName];
 	}
 

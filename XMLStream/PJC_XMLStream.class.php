@@ -3,12 +3,12 @@
 	$Id$
 */
 
-require_once('XMLTokenStream.class.php');
-require_once('XMLStreamException.class.php');
-require_once('XMLStreamNode.class.php');
-require_once(dirname(__FILE__).'/XMLStreamElement.class.php');
+require_once('PJC_XMLTokenStream.class.php');
+require_once('PJC_XMLStreamException.class.php');
+require_once('PJC_XMLStreamNode.class.php');
+require_once(dirname(__FILE__).'/PJC_XMLStreamElement.class.php');
 
-class XMLStream extends XMLTokenStream {
+class PJC_XMLStream extends PJC_XMLTokenStream {
 	public function nextNode() {
 	}
 	public function currentNode() {
@@ -19,12 +19,12 @@ class XMLStream extends XMLTokenStream {
 		if($token === null)
 			return null;
 
-		$node = new XMLStreamNode($token);
+		$node = new PJC_XMLStreamNode($token);
 		if($node->isXmlDeclaration())
 			$node = $this->readNode();
 
 		if($expectedName !== null && $node->getName() !== $expectedName)
-			throw new XMLStreamException("Unexpected node `{$node->getName()}`. `$expectedName` expected: ".$token);
+			throw new PJC_XMLStreamException("Unexpected node `{$node->getName()}`. `$expectedName` expected: ".$token);
 
 		return $node;
 	}
@@ -43,11 +43,11 @@ class XMLStream extends XMLTokenStream {
 		}
 
 		if(!($node->isOpenTag() || $node->isEmpty()))
-			throw new XMLStreamException('Unexpected node `'.$node->getName().'`. Open tag expected');
+			throw new PJC_XMLStreamException('Unexpected node `'.$node->getName().'`. Open tag expected');
 
 		$elementName = $node->getName();
 
-		$elt = new XMLStreamElementMY($node->getName());
+		$elt = new PJC_XMLStreamElement($node->getName());
 
 		foreach($node->getParams() as $k=>$v)
 			$elt->appendParameter($k, $v);
@@ -56,13 +56,13 @@ class XMLStream extends XMLTokenStream {
 			while(true) {
 				$node = $this->readNode();
 				if(!$node)
-					throw new XMLStreamException('Unexpected end of stream');
+					throw new PJC_XMLStreamException('Unexpected end of stream');
 
 				if($node->isCloseTag()) {
 					if($node->getName() === $elementName)
 						break;
 					else
-						throw new XMLStreamException('Unexpected close tag `'.$node->getName().'`. `'.$elementName.'` expected');
+						throw new PJC_XMLStreamException('Unexpected close tag `'.$node->getName().'`. `'.$elementName.'` expected');
 				}
 
 				if($node->isData()) {
@@ -74,16 +74,10 @@ class XMLStream extends XMLTokenStream {
 
 					$elt->appendChild($this->readElement());
 				} else {
-					throw new XMLStreamException('Strange XML token detected `'.$node->getXmlString().'`');
+					throw new PJC_XMLStreamException('Strange XML token detected `'.$node->getXmlString().'`');
 				}
 			}
 		}
 		return $elt;
 	}
 }
-/*
-error_reporting(E_ALL);
-$xml = new XMLStream(STDIN);
-while(($token = $xml->readElement())) {
-// 	var_dump($token);
-}*/
