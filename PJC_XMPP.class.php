@@ -3,11 +3,18 @@
 	$Id$
 */
 
-require_once('XMLStream/XMLStream.class.php');
+require_once('XMLStream/PJC_XMLStream.class.php');
 require_once('PJC_Log.class.php');
 require_once('exceptions/PJC_NetworkException.class.php');
 require_once('exceptions/PJC_NotAuthorizedException.class.php');
 
+/**
+*	Базовый класс для работы с XMPP.
+*	Предоставляет только самый основной функционал, а именно:
+*	соединение, авторизация, presence, периодический пинг сервера чтобы соединение
+*	не грохнулось по таймауту, хендлеры на станзы, хелперы для отправки станз,
+*	крон. В общем всё то, без чего нельзя было бы сделать ничего.
+*/
 class PJC_XMPP {
 	protected $host;
 	protected $port;
@@ -58,10 +65,19 @@ class PJC_XMPP {
 			fclose($this->sock);
 	}
 
+	/**
+	*	Отключить TLS (по умолчанию включено)
+	*/
 	public function disableTls() {
 		$this->useTls = false;
 	}
 
+	/**
+	*	Соединиться с сервером.
+	*	Происходит создание сокета, соединение, установка
+	*	неблокирующего режима (можно убрать, ибо не нужен) и инициализация
+	*	входного и выходного XML-потоков (не XMPP-потоков)
+	*/
 	protected function connect() {
 		$errno = 0;
 		$errstr = 0;
@@ -71,10 +87,13 @@ class PJC_XMPP {
 			throw new PJC_NetworkException($errstr, $errno);
 		stream_set_blocking($this->sock, 0);
 
-		$this->in = new XMLStream($this->sock);
-		$this->out = new XMLStream($this->sock);
+		$this->in = new PJC_XMLStream($this->sock);
+		$this->out = new PJC_XMLStream($this->sock);
 	}
 
+	/**
+	*	Проинициализировать XMPP XML-поток.
+	*/
 	protected function startStream() {
 		$this->out->write('<stream:stream xmlns="jabber:client" to="'.$this->host.'" version="1.0" xmlns:stream="http://etherx.jabber.org/streams">');
 		$this->in->readNode('stream:stream');
@@ -82,6 +101,11 @@ class PJC_XMPP {
 		$this->log->notice('Stream started');
 	}
 
+	/**
+	*	Проинициализировать TLS.
+	*	TLS реализуется целиком средствами самого PHP, поэтому после инициализации
+	*	из сокета можно свободно читать и писать, шифрование делается прозрачно.
+	*/
 	protected function startTls() {
 		$this->sendStanza(array('#name'=>'starttls', 'xmlns'=>'urn:ietf:params:xml:ns:xmpp-tls'));
 		$this->in->readElement('proceed');
@@ -91,6 +115,9 @@ class PJC_XMPP {
 		$this->log->notice('TLS started');
 	}
 
+	/**
+	*	Авторизация
+	*/
 	protected function authorize() {
 		$this->sendStanza(array(
 			'#name'=>'auth',
@@ -108,6 +135,9 @@ class PJC_XMPP {
 		$this->log->notice('Authorized');
 	}
 
+	/**
+	*	Сгенерировать уникальный ID для станзы.
+	*/
 	protected function genId() {
 		static $lastId = 1;
 		return sprintf('%u.%x%x%x', $lastId++, mt_rand(), mt_rand(), mt_rand()); // lol
@@ -129,7 +159,12 @@ class PJC_XMPP {
 		$this->log->notice('Resource binded. JID: '.$this->realm);
 	}
 
-	function initiate() {
+	/**
+	*	Произвести полную инициализацию XMPP.
+	*	Подключение к серверу, инициализация TLS (если надо),
+	*	авторизация, биндинг ресурсов, presence и прочее.
+	*/
+	public function initiate() {
 		$this->connect();
 		$this->out->write('<?xml version="1.0"?>');
 		$this->startStream();
@@ -157,13 +192,20 @@ class PJC_XMPP {
 		$this->initiated = true;
 	}
 
+	/**
+	*	Вызывается перед завержением initiate().
+	*	@see PJC_XMPP::initiate()
+	*/
 	protected function initiated() {
 		$this->addHandler('iq:has(ping)', array($this, 'pingHandler'));
 
 		$this->cronAddPeriodic($this->pingInterval, array($this, 'ping'));
 	}
 
-	function ping() {
+	/**
+	*	Послать пинг серверу.
+	*/
+	public function ping() {
 		$this->lastPingTime = time();
 		$this->sendIq('get', array(
 			array('#name'=>'ping', 'xmlns'=>'urn:xmpp:ping')
@@ -172,6 +214,19 @@ class PJC_XMPP {
 		$this->log->debug('Ping request');
 	}
 
+	/**
+	*	Повесить хендлер на станзы, подпадающие под селектор.
+	*	Обработчик должен принимать первым параметром xmpp-клиент ($this по существу),
+	*	вторым параметром будет станза (PJC_XMLStreamElement). Остальные параметры
+	*	берутся из $callbackParameters.
+	*	Если на одну и ту же станзу претендуют несколько хендлеров, то они
+	*	будут вызываться в порядке добавления хендлеров. Чтобы подавить
+	*	дальнейшую обработку хендлер должен вернуть false.
+	*	@param string селектор
+	*	@param callback обработчик
+	*	@param array доп. параметры обработчика
+	*	@param bool добавить с высшим приоритетом
+	*/
 	public function addHandler($selector, $callback, $callbackParameters = array(), $extraPriority = false) {
 		if($extraPriority) {
 			if(!isset($this->handlers[$selector]))
@@ -184,10 +239,17 @@ class PJC_XMPP {
 		$this->handlers[$selector][] = array('callback'=>$callback, 'params'=>$callbackParameters);
 	}
 
+	/**
+	*	Удалить хендлер по селектору.
+	*/
 	public function removeHandler($selector) {
 		unset($this->handlers[$selector]);
 	}
 
+	/**
+	*	Запускает основной цикл клиента.
+	*	В цикле тупо происходит чтение станз и их обработка.
+	*/
 	public function runEventBased() {
 		if(!$this->initiated)
 			$this->initiate();
@@ -204,21 +266,47 @@ class PJC_XMPP {
 	}
 
 	/* ----------------------------- cron ---------------------------- */
-
+	/**
+	*	Проверить и вызвать кроновые события, время которых пришло.
+	*	Это главный метод крона, дёргать его можно откуда угодно, главное вовремя.
+	*	В текущей реализации крона алярм вызывается на каждый прогон socket_select()
+	*	при чтении из сокета, вероятность сильно просрочить вызов очень мала,
+	*	т.к. таймаут селекта берётся из кроновых же правил, то есть
+	*	в качестве таймаута берётся время до ближайшего события.
+	*	@see PJC_XMPP::cronGetVacationTime()
+	*/
 	public function alarm() {
 		$this->cron();
 		$this->updateCronAlarm();
 	}
 
+	/**
+	*	Добавить периодическое правило в крон.
+	*	@param float интервал между вызовами события в секундах
+	*	@param callback обработчик
+	*	@param array параметры обработчика
+	*	@param string идентификатор правила, нужен если трубуется удалять правила
+	*/
 	public function cronAddPeriodic($interval, $callback, $callbackParameters = array(), $ident = null) {
 		$rule = array('interval'=>$interval, 'callback'=>$callback, 'lastCall'=>time());
 		$this->cronAddRule($interval > 0 ? $interval : 0, $callback, 'periodic', $callbackParameters, $ident);
 	}
 
+	/**
+	*	Добавить одноразовое правило в крон.
+	*	Событие происходит один раз через $timeout секунд и удаляется из крона.
+	*	@param float количество секунд до события
+	*	@param callback обработчик
+	*	@param array параметры обработчика
+	*	@param string идентификатор правила, нужен если трубуется удалять правила
+	*/
 	public function cronAddOnce($timeout, $callback, $callbackParameters = array(), $ident = null) {
 		$this->cronAddRule($timeout > 0 ? $timeout : 0, $callback, 'once', $callbackParameters, $ident);
 	}
 
+	/**
+	*	Служебная функция, фактическое добавление записи в очередь крона и её (очереди) пересортировка.
+	*/
 	protected function cronAddRule($time, $callback, $type, $callbackParameters = array(), $ident = null) {
 		$rule = array(
 			'type'=>$type,
@@ -234,6 +322,10 @@ class PJC_XMPP {
 		$this->updateCronAlarm();
 	}
 
+	/**
+	*	Проверяет есть ли в кроне правило с указанным идентом
+	*	@return bool
+	*/
 	public function cronHasRuleWithIdent($ident) {
 		foreach($this->crontab as $ct)
 			if($ct['ident'] === $ident)
@@ -241,6 +333,9 @@ class PJC_XMPP {
 		return false;
 	}
 
+	/**
+	*	Удаляет правило по идентификатору.
+	*/
 	public function cronRemoveRuleByIdent($ident) {
 		$removed = 0;
 		foreach($this->crontab as $k=>$ct) {
@@ -254,10 +349,17 @@ class PJC_XMPP {
 		$this->updateCronAlarm();
 	}
 
+	/**
+	*	Сортировка очереди по времени, оставшемуся до запуска.
+	*/
 	protected function cronSortRuleset() {
 		usort($this->crontab, 'PJC_XMPP::cronQueueSortCb');
 		$this->cronPrintRuleset();
 	}
+
+	/**
+	*	Распечатать в лог очередь крона.
+	*/
 	protected function cronPrintRuleset() {
 		$inf = '';
 		foreach($this->crontab as $ct) {
@@ -267,6 +369,9 @@ class PJC_XMPP {
 		$this->log->debug('Crontab', $inf);
 	}
 
+	/**
+	*	Коллбек для usort() для сортировки событий по времени, оставшемуся до запуска.
+	*/
 	public static function cronQueueSortCb($a, $b) {
 		$curTime = time();
 		$at = $a['time'] - ($curTime - $a['lastCall']);
@@ -280,6 +385,9 @@ class PJC_XMPP {
 			return 0;
 	}
 
+	/**
+	*	Метод вызывается для установки таймера для запуска alarm() через нужное нам время.
+	*/
 	protected function updateCronAlarm() {
 		$timeout = null;
 		while(($timeout = $this->cronGetVacationTime()) <= 0)
@@ -288,6 +396,9 @@ class PJC_XMPP {
 		$this->in->setSelectTimeout($timeout);
 	}
 
+	/**
+	*	Проверка и запуск обработчиков на события, время которых пришло.
+	*/
 	protected function cron() {
 		while(sizeof($this->crontab)) {
 			$ct = &$this->crontab[0];
@@ -316,6 +427,9 @@ class PJC_XMPP {
 		}
 	}
 
+	/**
+	*	Получить время, оставшееся до возбуждения ближайшего кронового события.
+	*/
 	protected function cronGetVacationTime() {
 		if(sizeof($this->crontab)) {
 			$first = $this->crontab[0];
@@ -416,8 +530,11 @@ class PJC_XMPP {
 		return false;
 	}
 
+	/**
+	*	Возвращает жид клиента в сокращённой форме (без ресурса, пример: user@server.tld).
+	*/
 	public function shortJid() {
-		return XMPP::parseJid($this->realm, 'short');
+		return self::parseJid($this->realm, 'short');
 	}
 
 	static function parseJid($jid, $component = null) {
@@ -446,7 +563,7 @@ class PJC_XMPP {
 		if(!isset($stanza['#name']))
 			throw new Exception('#name parameter not found');
 
-		$elt = new XMLStreamElementMY($stanza['#name']);
+		$elt = new PJC_XMLStreamElement($stanza['#name']);
 		foreach($stanza as $p=>$v) {
 			if(is_string($p)) {
 

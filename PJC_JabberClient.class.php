@@ -6,17 +6,48 @@ require_once('PJC_XMPP.class.php');
 require_once('PJC_Sender.class.php');
 require_once('PJC_Conference.class.php');
 
+/**
+*	Класс, предоставляющий главный функционал для работы с XMPP.
+*	В отличии от PJC_XMPP этот класс реализует расширенный функционал,
+*	такой как отправка сообщений, управление статусами, конференции и т.д.
+*/
 class PJC_JabberClient extends PJC_XMPP {
+	/**
+	*	Очередь сообщений для отправки, сообщения из очереди отправляются раз
+	*	в $messagesQueueInterval секунд.
+	*	@see PJC_JabberClient::addMessage()
+	*/
 	protected $messagesQueue = array();
+	/**
+	*	Интервал отправки сообщений из очереди (в секундах).
+	*/
 	protected $messagesQueueInterval = 1;
+	/**
+	*	Дата последней отправки сообщения из очереди.
+	*/
 	protected $messagesQueueLastSendTime;
 
+	/**
+	*	Список конференций, в которых в данный момент состоит клиент.
+	*/
 	protected $conferences = array();
+
+	/**
+	*	Текущее статусное сообщение.
+	*/
 	protected $status = null;
 
+	/**
+	*	Информация по событиям вейтеров.
+	*	@see PJC_JabberClient::wait()
+	*/
 	protected $waiterEvents = array();
 
-	function initiated() {
+	/**
+	*	Событие, вызываемое сразу после завершения инициализации XMPP-сессии и
+	*	отправки presence.
+	*/
+	protected function initiated() {
 		parent::initiated();
 
 		$this->addHandler('message:has(body)', array($this, 'messageHandler'));
@@ -32,11 +63,10 @@ class PJC_JabberClient extends PJC_XMPP {
 		$this->onSessionStarted();
 	}
 
-	function shortJid() {
-		return PJC_XMPP::parseJid($this->realm, 'short');
-	}
-
 	/* ----------------------------------- messages --------------------------*/
+	/**
+	*	Служебный обработчик <message>-станзы
+	*/
 	protected function messageHandler($xmpp, $elt) {
 		if($elt->hasParam('type') && $elt->param('type')==='error')
 			return;
@@ -61,15 +91,35 @@ class PJC_JabberClient extends PJC_XMPP {
 		return $continueHandling;
 	}
 
-	function sendMessage($to, $body, $type = 'chat', array $additionalElements = array()) {
+	/**
+	*	Отослать сообщение.
+	*	Альяс для message()
+	*	@see PJC_JabberClient::message()
+	*/
+	public function sendMessage($to, $body, $type = 'chat', array $additionalElements = array()) {
 		return $this->message($to, $body, $type, $additionalElements);
 	}
 
-	function sendConfMessage($to, $body) {
+	/**
+	*	Отослать сообщение в конференцию.
+	*	Просто хелпер, по существу - сокращённая до минимума форма sendMessage()
+	*	@param string jid конференции
+	*	@param string текст
+	*/
+	public function sendConfMessage($to, $body) {
 		return $this->message($to, $body, 'groupchat');
 	}
 
-	function _messageTruncateInvalidCharset($body) {
+	/**
+	*	Служебная функция для вырезания неюникодных символов из входной строки.
+	*	Используется перед отсылкой сообщений. Если обнаружены невалидные
+	*	символы, то они удаляются, а в начало строки добавляется сообщение
+	*	'[MESSAGE WAS TRUNCATED. NON-UTF8 CHARACTERS DETECTED]'.
+	*
+	*	@param string
+	*	@return string
+	*/
+	private function _messageTruncateInvalidCharset($body) {
 		$nbody = iconv('utf-8', 'utf-8//IGNORE', $body);
 		if($nbody !== $body) {
 			$nbody = '[MESSAGE WAS TRUNCATED. NON-UTF8 CHARACTERS DETECTED]'.$nbody;
@@ -78,7 +128,14 @@ class PJC_JabberClient extends PJC_XMPP {
 		return $nbody;
 	}
 
-	function message($to, $body, $type = 'chat', array $additionalElements = array()) {
+	/**
+	*	Отослать сообщение.
+	*	@param string jid получателя
+	*	@param string текст
+	*	@param string тип
+	*	@param array дополнительные элементы внутри станзы сообщения (пока что принимается только массив PJC_XmlStreamElement)
+	*/
+	protected function message($to, $body, $type = 'chat', array $additionalElements = array()) {
 		if(!is_array($body))
 			$body = array('plain'=>$body);
 
@@ -91,7 +148,7 @@ class PJC_JabberClient extends PJC_XMPP {
 		);
 
 		foreach($body as $type=>$message) {
-			//! тут какая-то херня. Надо разобраться почему тут нет эскейпа
+			//! тут какая-то херня. Надо разобраться почему не делется эскейп
 			$message = $this->_messageTruncateInvalidCharset($message);
 			if($type === 'xhtml') {
 				$stanza[] = array(
@@ -118,7 +175,16 @@ class PJC_JabberClient extends PJC_XMPP {
 	}
 
 	/* ------------------------------- messages queue ------------------------*/
-	function addMessage($to, $body, $type = 'chat') {
+	/**
+	*	Добавление сообщения в очередь на отправку.
+	*	Используется если надо отослать сразу много сообщений,
+	*	а сервер перекрывает. Сообщение добавляется в очередь, отправка же
+	*	осуществляется раз в $this->messagesQueueLastSendTime секунд
+	*	@param string jid получателя
+	*	@param string текст
+	*	@param string тип
+	*/
+	public function addMessage($to, $body, $type = 'chat') {
 		// no signal-safe
 		$this->messagesQueue[] = array('to'=>$to, 'body'=>$body, 'type'=>$type);
 
@@ -131,10 +197,13 @@ class PJC_JabberClient extends PJC_XMPP {
 		$this->messagesQueueLastSendTime = time() + $delay;
 	}
 
-	function addConfMessage($to, $body) {
+	public function addConfMessage($to, $body) {
 		$this->addMessage($to, $body, 'groupchat');
 	}
 
+	/**
+	*	Служебный обработчик для отправки сообщений из очереди.
+	*/
 	protected function pollMessageQueue() {
 		// no alarm-safe
 		if(sizeof($this->messagesQueue)) {
@@ -168,8 +237,8 @@ class PJC_JabberClient extends PJC_XMPP {
 		unset($this->conferences[$conferenceAddress]);
 	}
 
-	protected function registerConference($conferenceAddress) {
-		$conf = new Conference($this, $conferenceAddress);
+	public function registerConference($conferenceAddress) {
+		$conf = new PJC_Conference($this, $conferenceAddress);
 		$this->conferences[$conferenceAddress] = $conf;
 		return $conf;
 	}
@@ -227,7 +296,21 @@ class PJC_JabberClient extends PJC_XMPP {
 	}
 
 	/* ------------------------------------ waiter ------------------------- */
-
+	/**
+	*	Ставит одноразовый обработчик с таймаутом для первой станзы, подпадающей под селектор.
+	*	При получении нужной станзы вызывается $callback, первым параметром
+	*	при выове будет сам жаббер-клиент, вторым станза, остальные параметры
+	*	будут браться из $callbackParameters.
+	*	Если прошло $timeout секунд, а станзы, подпадающей под селектор не было обнаружено,
+	*	то вызывается $timedOutCallback с параметрами из $timedOutCallbackParameters.
+	*	После обработки первой станзы или таймаута хук на станзу удаляется.
+	*	@param string селектор
+	*	@param float таймаут
+	*	@param callback коллбек, вызываемый при получении нужной станзы
+	*	@param array параметры коллбека
+	*	@param callback коллбек, вызываемый при таймауте ожидания
+	*	@param array параметры коллбека
+	*/
 	public function wait($selector, $timeout, $callback, $callbackParameters = array(), $timedOutCallback = null, $timedOutCallbackParameters = array()) {
 		if(isset($this->waiterEvents[$selector]))
 			throw new Exception("Duplicate selector `$selector` in waiter");
@@ -245,6 +328,12 @@ class PJC_JabberClient extends PJC_XMPP {
 		$this->cronAddOnce($timeout, array($this, 'waiterGCHandler'), array($selector), $cronGCIdent);
 	}
 
+	/**
+	*	Служебный обработчик вейтеров.
+	*	Вызывается при срабатывании хука на станзу, которую запрашивал
+	*	любой из вейтеров. Выбирается нужный вейтер, вызывается его обработчик
+	*	и подчищается весь мусор
+	*/
 	protected function waiterStanzaHandler($xmpp, $element, $selector) {
 		$this->removeHandler($selector);
 
@@ -258,6 +347,10 @@ class PJC_JabberClient extends PJC_XMPP {
 		return false;
 	}
 
+	/**
+	*	Служебный обработчик, вызывается при таймауте вейтера, выывает обработчик
+	*	таймаута вейтера и чистит мусор.
+	*/
 	protected function waiterGCHandler($selector) {
 		$this->removeHandler($selector);
 
@@ -271,6 +364,10 @@ class PJC_JabberClient extends PJC_XMPP {
 	}
 
 	/* --------------------- client info --------------------------- */
+	/**
+	*	Хендлер, отвечающий за ответы на запрос версии и информации о
+	*	используемом jabber-клиенте
+	*/
 	protected function versionRequestHandler($xmpp, $element) {
 		if(!$element->hasParam('id') || !$element->hasParam('from'))
 			return;
@@ -292,11 +389,19 @@ class PJC_JabberClient extends PJC_XMPP {
 		));
 	}
 
+	/**
+	*	Устанавливает статусное сообщения клиента.
+	*	@param string статусное сообщение
+	*/
 	public function setUserStatus($statusString) {
 		$this->status = $statusString;
 		$this->presence();
 	}
 
+	/**
+	*	Отослать presence-сообщение.
+	*	@param string jid получателя, если не указано, но рассылается всему контакт-листу (это делает jabber-сервер)
+	*/
 	public function presence($to = null) {
 		$stanza = array(
 			'#name'=>'presence',
@@ -354,14 +459,56 @@ class PJC_JabberClient extends PJC_XMPP {
 
 
 	/* ---------------- predefined handlers -------------------- */
+	/**
+	*	Обработчик входящих сообщений.
+	*	Вызывается на любое входящее сообщение (из конференции или личное).
+	*	@param PJC_Sender отправитель
+	*	@param string текст
+	*	@param string заголовок сообщения
+	*	@param PJC_XmlStreamElement станза сообщения
+	*/
 	protected function onMessage($fromUser, $body, $subject, $elt) {
 		$this->log->debug('Unhandled message', $elt->dump());
 	}
 
+	/**
+	*	Обработчик входящих личных сообщений.
+	*	После завершения этого обработчика вызывается событие onMessage(),
+	*	если этого не требуется, то можно вернуть false, тогда дальнейшая
+	*	обработка производиться не будет
+	*	@param PJC_Sender отправитель
+	*	@param string текст
+	*	@param string заголовок
+	*	@param PJC_XmlStreamElement станза сообщения
+	*
+	*	@return null|false
+	*/
 	protected function onPrivateMessage($fromUser, $body, $subject, $elt) {}
+
+	/**
+	*	Обработчик входящих сообщений из конференций.
+	*	После завершения этого обработчика вызывается событие onMessage(),
+	*	если этого не требуется, то можно вернуть false, тогда дальнейшая
+	*	обработка производиться не будет
+	*	@param PJC_Conference конференция
+	*	@param PJC_Sender отправитель
+	*	@param string текст
+	*	@param PJC_XmlStreamElement станза сообщения
+	*
+	*	@return null|false
+	*/
 	protected function onConferenceMessage($fromConference, $fromUser, $body, $elt) {}
 
+	/**
+	*	Обработчик, вызываемый после установки всех системных хендлеров.
+	*/
 	protected function onSessionStarted() {}
+
+	/**
+	*	Обработчик запроса авторизации.
+	*	@param PJC_Sender отправитель
+	*	@param PJC_XmlStreamElement станза запроса
+	*/
 	protected function onSubscribeRequest($fromUser, $elt) {
 		$this->log->notice('Subscription Request', $elt->dump());
 	}
@@ -373,6 +520,15 @@ class PJC_JabberClient extends PJC_XMPP {
 	}
 
 	/*  ------------------ cron periodic ----------------------- */
+	/**
+	*	Обработчик периодического события.
+	*	Вызывается раз в сутки аптайма (первый раз через 24 часа аптайма, второй через 48 и т.д.)
+	*/
 	protected function daily() {}
+
+	/**
+	*	Обработчик периодического события.
+	*	Вызывается раз в час аптайма (первый раз через час аптайма, второй через два и т.д.)
+	*/
 	protected function hourly() {}
 }
