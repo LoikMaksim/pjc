@@ -270,4 +270,12 @@ class PJC_Stream {
 		}
 		$this->streamErrorHandlingEnd();
 	}
+
+	public function close() {
+		if(!$this->streamFd)
+			return;
+
+		fclose($this->streamFd);
+		$this->streamFd = null;
+	}
 }

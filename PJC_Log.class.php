@@ -43,7 +43,7 @@ class PJC_Log {
 			$lines[0] .= ':';
 			$dataLines = explode("\n", trim($data));
 			foreach($dataLines as &$l)
-				$l = "$prefix ...\t$l";
+				$l = "$prefix ... $l";
 			$lines = array_merge($lines, $dataLines);
 			unset($l);
 		}
