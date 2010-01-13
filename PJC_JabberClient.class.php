@@ -46,6 +46,7 @@ class PJC_JabberClient extends PJC_XMPP {
 	protected $presenceCapsNode = 'http://pjc.googlecode.com/caps';
 	protected $clientSoftwareName = 'PJC';
 	protected $clientSoftwareVersion = '0.02';
+	protected $avatarPath = null;
 
 	/**
 	*	Событие, вызываемое сразу после завершения инициализации XMPP-сессии и
@@ -407,13 +408,21 @@ class PJC_JabberClient extends PJC_XMPP {
 	*	@param string jid получателя, если не указано, но рассылается всему контакт-листу (это делает jabber-сервер)
 	*/
 	public function presence($to = null) {
+		$x = array(
+			'#name'=>'x',
+			'xmlns'=>'vcard-temp:x:update'
+		);
+
+		if($this->avatarPath !== null && is_readable($this->avatarPath)) {
+			$x[] = array(
+				'#name'=>'photo',
+				sha1(file_get_contents($this->avatarPath))
+			);
+		}
+
 		$stanza = array(
 			'#name'=>'presence',
-			array(
-				'#name'=>'x',
-				'xmlns'=>'vcard-temp:x:update',
-				array('#name'=>'photo')
-			),
+			$x,
 			array(
 				'#name'=>'c',
 				'xmlns'=>'http://jabber.org/protocol/caps',
