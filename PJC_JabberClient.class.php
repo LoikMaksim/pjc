@@ -43,6 +43,10 @@ class PJC_JabberClient extends PJC_XMPP {
 	*/
 	protected $waiterEvents = array();
 
+	protected $presenceCapsNode = 'http://pjc.googlecode.com/caps';
+	protected $clientSoftwareName = 'PJC';
+	protected $clientSoftwareVersion = '0.02';
+
 	/**
 	*	Событие, вызываемое сразу после завершения инициализации XMPP-сессии и
 	*	отправки presence.
@@ -413,7 +417,9 @@ class PJC_JabberClient extends PJC_XMPP {
 			array(
 				'#name'=>'c',
 				'xmlns'=>'http://jabber.org/protocol/caps',
-				'hash'=>'sha-1'
+				'hash'=>'sha-1',
+				'node'=>$this->presenceCapsNode,
+				'ver'=>$this->clientSoftwareName.' '.$this->clientSoftwareVersion
 			),
 			array('#name'=>'priority', $this->priority)
 		);
