@@ -96,6 +96,7 @@ class PJC_XMPP {
 	*/
 	protected function startStream() {
 		$this->out->write('<stream:stream xmlns="jabber:client" to="'.$this->host.'" version="1.0" xmlns:stream="http://etherx.jabber.org/streams">');
+		$this->in->resetParser();
 		$this->in->readNode('stream:stream');
 		$this->in->readElement('stream:features');
 		$this->log->notice('Stream started');
