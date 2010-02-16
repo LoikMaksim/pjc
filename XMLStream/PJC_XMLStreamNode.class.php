@@ -21,14 +21,32 @@ class PJC_XMLStreamNode {
 
 	protected $xmlString = null;
 
-	function __construct($importString) {
-		$this->xmlString = $importString;
-		$this->parse($importString);
+	function __construct($importString = null) {
+		if($importString !== null) {
+			$this->xmlString = $importString;
+			$this->parse($importString);
+		}
 		self::$numInstances++;
 	}
 
 	public function __destruct() {
 		self::$numInstances--;
+	}
+
+	public function setType($type) {
+		$this->type = $type;
+	}
+
+	public function setName($name) {
+		$this->name = $name;
+	}
+
+	public function setAttributes($attributes) {
+		$this->params = $attributes;
+	}
+
+	public function setText($text) {
+		$this->text = $text;
 	}
 
 	function getXmlString() {
@@ -145,35 +163,6 @@ class PJC_XMLStreamNode {
 			throw new Exception("Unexpected end of parameters string ($parametersString)");
 		}
 
-		return $params;
-	}
-
-	/*static */protected function parseParametersOld($parametersString) {
-		$params = array();
-		$origParametersString = $parametersString;
-		$parametersString = trim($parametersString);
-		if(strlen($parametersString)) {
-			$pa = preg_split('/\s+/', $parametersString);
-			foreach($pa as $paramString) {
-				$parameter = null;
-				$value = null;
-				if(preg_match('/^([^=]+)=(.+)$/', $paramString, $m)) {
-					$parameter = $m[1];
-					$valString = $m[2];
-					if($valString{0} === '\'' || $valString{0} === '"') {
-						$lastChr = $valString{strlen($valString)-1};
-						if($lastChr !== $valString{0})
-							throw new Exception("Can't parse parameter value `$valString` ($origParametersString)");
-						$value = substr($valString, 1, strlen($valString)-2);
-					} else {
-						$value = $valString;
-					}
-				} else {
-					throw new Exception("Can't parse parameter string `$paramString`");
-				}
-				$params[$parameter] = $value;
-			}
-		}
 		return $params;
 	}
 

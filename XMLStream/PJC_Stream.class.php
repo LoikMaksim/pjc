@@ -1,8 +1,4 @@
 <?php
-/*
-	$Id$
-*/
-
 require_once('PJC_StreamException.class.php');
 
 declare(ticks = 1);
@@ -10,9 +6,6 @@ declare(ticks = 1);
 class PJC_Stream {
 	private $streamFd;
 	private $streamIsFdOwner = false;
-	private $streamBuffer = '';
-	private $streamBufferPos = 0;
-	private $streamBufferMaxSize = 65536;
 	private $streamEof = false;
 
 	private $selectTimeout = 600;
@@ -20,8 +13,6 @@ class PJC_Stream {
 
 	public $bytesRead = 0;
 	public $bytesWritten = 0;
-// 	protected $streamLastErrno = false;
-// 	protected $streamLastErrstr = false;
 
 	function __construct($source) {
 		if(is_resource($source)) {
@@ -32,16 +23,14 @@ class PJC_Stream {
 				throw new Exception('Can\'t open file '.$source);
 			$this->streamIsFdOwner = true;
 		}
-// 		stream_set_blocking($this->streamFd, 0);
 	}
 
 	function __destruct() {
 		if($this->streamIsFdOwner)
-			fclose($streamFd);
+			fclose($this->streamFd);
 	}
 
 	function fuckingStreamErrorHandler($errno, $errstr) {
-// 		echo $errstr, "\n";
 		if(preg_match('/^stream_select\(\).* \[(\d+)\]: (.*?) \(.*/', $errstr, $m))
 			throw new PJC_StreamException('stream_select(): '.$m[2], (int)$m[1]);
 		elseif(preg_match('/^(.*?)\(\).*errno\=(\d+) (.*?)$/', $errstr, $m))
@@ -60,12 +49,14 @@ class PJC_Stream {
 		restore_error_handler();
 	}
 
-	final private function readChunkInBuffer() {
-		/* for valid signal handling */
-		$toRead = $this->streamBufferMaxSize - strlen($this->streamBuffer);
-		if($toRead > 0) {
-			$this->streamErrorHandlingStart();
-			$readed = '';
+	final public function readChunk($maxSize) {
+		$toRead = (int)$maxSize;
+		if($toRead <= 0)
+			throw new PJC_StreamException("\$maxSize must be more than 0, $maxSize given");
+
+		$this->streamErrorHandlingStart();
+		$readed = '';
+		try {
 			while(true) {
 				$this->runOnSelect();
 				$timeoutSec = (int)$this->selectTimeout;
@@ -99,7 +90,6 @@ class PJC_Stream {
 					}
 
 					$this->bytesRead += strlen($readed);
-					$this->streamBuffer .= $readed;
 					break;
 				} catch(PJC_StreamException $e) {
 					if($e->getCode() === 4) // EINTR
@@ -108,10 +98,13 @@ class PJC_Stream {
 						throw $e;
 				}
 			}
+		} catch(Exception $e) {
 			$this->streamErrorHandlingEnd();
-			return strlen($readed) ? strlen($readed) : null;
+			throw $e;
 		}
-		return 0;
+
+		$this->streamErrorHandlingEnd();
+		return $readed;
 	}
 
 	protected function runOnSelect() {
@@ -127,119 +120,12 @@ class PJC_Stream {
 		$this->selectTimeout = $timeout;
 	}
 
-	final public function unread($data) {
-		$this->streamBuffer = $data.substr($this->streamBuffer, $this->streamBufferPos);
-		$this->streamBufferPos = 0;
-	}
+	public function close() {
+		if(!$this->streamFd)
+			return;
 
-	final public function readByte() {
-		if($this->streamBufferPos >= strlen($this->streamBuffer)) {
-			$this->streamBuffer = '';
-			if(!$this->readChunkInBuffer())
-				return null;
-			$this->streamBufferPos = 0;
-		}
-		return $this->streamBuffer{$this->streamBufferPos++};
-	}
-
-	/*private */function getCurrentStreamBuffer() {
-		return substr($this->streamBuffer, $this->streamBufferPos);
-	}
-
-	/* Extended features */
-	public function read($numOfBytes) {
-		$str = '';
-		for($i=0; $i<$numOfBytes; $i++) {
-			if(($chr = $this->readByte()) === null)
-				break;
-			$str .= $chr;
-		}
-		return strlen($str) ? $str : null;
-	}
-
-	public function readUntil($end, $keepEndInStream = true) {
-		$str = '';
-		$endReached = false;
-		while(($chr = $this->readByte()) !== null) {
-			if(strpos($str.$chr, $end) !== false) {
-				$endReached = true;
-				break;
-			}
-			$str .= $chr;
-		}
-
-		if(strlen($str)) {
-			if($keepEndInStream)
-				$this->unread($end);
-			$endLen = strlen($end);
-			$str = substr($str, 0, strlen($str) - ($endLen - 1));
-		}
-
-		if(!strlen($str) && !$endReached)
-			return null;
-
-		return $str;
-	}
-
-	public function readUntilBoundary($end) {
-		$readed = $this->readUntil($end);
-		if($this->compare($end))
-			return $readed;
-		$this->unread($readed);
-		return null;
-	}
-
-	public function readOver($end) {
-		return $this->readUntil($end, false);
-	}
-
-	public function readOverBoundary($end) {
-		$readed = $this->readUntil($end);
-		if($this->compareSkipOnEqual($end))
-			return $readed;
-
-		$this->unread($readed);
-		return null;
-	}
-
-	public function readOverBoundaryInclusive($end) {
-		if(($readed = $this->readOverBoundary($end)) === null)
-			return null;
-		return $readed.$end;
-	}
-
-	public function compare($needle) {
-		$equal = true;
-		$buf = '';
-		for($i=0; $i<strlen($needle); $i++) {
-			if(($chr = $this->readByte()) === null || $chr !== $needle{$i}) {
-				$buf .= $chr;
-				$equal = false;
-				break;
-			}
-			$buf .= $chr;
-		}
-// 		echo "\"$needle\" == \"$buf\"?\n";
-// 		if(!$equal)
-		$this->unread($buf);
-
-		return $equal;
-	}
-
-	public function compareSkipOnEqual($needle) {
-		$equal = $this->compare($needle);
-		if($equal)
-			$this->read(strlen($needle));
-		return $equal;
-	}
-
-	public function readAll() {
-		$str = '';
-		$endReached = false;
-		while(($chr = $this->readByte()) !== null)
-			$str .= $chr;
-
-		return strlen($str) ? $str : null;
+		fclose($this->streamFd);
+		$this->streamFd = null;
 	}
 
 	public function write($string) {
@@ -269,13 +155,5 @@ class PJC_Stream {
 			}
 		}
 		$this->streamErrorHandlingEnd();
-	}
-
-	public function close() {
-		if(!$this->streamFd)
-			return;
-
-		fclose($this->streamFd);
-		$this->streamFd = null;
 	}
 }

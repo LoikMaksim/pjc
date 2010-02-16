@@ -3,36 +3,13 @@
 	$Id$
 */
 
-require_once('PJC_XMLTokenStream.class.php');
+require_once('PJC_Stream.class.php');
 require_once('PJC_XMLStreamException.class.php');
 require_once('PJC_XMLStreamNode.class.php');
-require_once(dirname(__FILE__).'/PJC_XMLStreamElement.class.php');
+require_once('PJC_XMLNodeStream.class.php');
+require_once('PJC_XMLStreamElement.class.php');
 
-class PJC_XMLStream extends PJC_XMLTokenStream {
-	public function nextNode() {
-	}
-	public function currentNode() {
-	}
-
-	public function readNode($expectedName = null) {
-		$token = $this->readToken();
-		if($token === null)
-			return null;
-
-		$node = new PJC_XMLStreamNode($token);
-		if($node->isXmlDeclaration())
-			$node = $this->readNode();
-
-		if($expectedName !== null && $node->getName() !== $expectedName)
-			throw new PJC_XMLStreamException("Unexpected node `{$node->getName()}`. `$expectedName` expected: ".$token);
-
-		return $node;
-	}
-
-	public function unreadNode($node) {
-		$this->unreadToken($node->getXmlString());
-	}
-
+class PJC_XMLStream extends PJC_XMLNodeStream {
 	public function readElement($expectedElementName = null) {
 		while(true) {
 			$node = $this->readNode($expectedElementName);
