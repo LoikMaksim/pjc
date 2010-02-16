@@ -19,8 +19,6 @@ class PJC_XMLStreamNode {
 	protected $name = null;
 	protected $text = null;
 
-	protected $xmlString = null;
-
 	function __construct($importString = null) {
 		if($importString !== null) {
 			$this->xmlString = $importString;
@@ -51,119 +49,6 @@ class PJC_XMLStreamNode {
 
 	function getXmlString() {
 		return $this->xmlString;
-	}
-
-	function parse($importString) {
-		$this->params = array();
-		$this->text = null;
-
-		if(strpos($importString, '<![CDATA[') === 0) {
-			$this->name = '#cdata';
-			$this->text = trim(substr($importString, strlen('<![CDATA['), strlen($importString) - (strlen('<![CDATA[') + strlen(']]>'))));
-			$this->type = self::TYPE_CDATA;
-
-		} elseif(strpos($importString, '<!--') === 0) {
-			$this->name = '#comment';
-			$this->text = trim(substr($importString, strlen('<!--'), strlen($importString) - (strlen('<!--') + strlen('-->'))));
-			$this->type = self::TYPE_COMMENT;
-
-		} elseif(strpos($importString, '<?xml') === 0) {
-			$this->name = 'xml';
-			$params = substr($importString, strlen('<?xml'), strlen($importString) - (strlen('<?xml') + strlen('?>')));
-			$this->params = $this->parseParameters($params);
-			$this->type = self::TYPE_XML_DECLARATION;
-		} elseif(preg_match('/^<(\/|)([^\s\/]+)(\s(.*?)|)(\/|)>$/s', $importString, $m)) {
-			$this->name = $m[2];
-			if(strlen($m[4]))
-				$this->params = $this->parseParameters($m[3]);
-
-			if($m[1] === '/')
-				$this->type = self::TYPE_CLOSE;
-			elseif($m[5] === '/')
-				$this->type = self::TYPE_EMPTY;
-			else
-				$this->type = self::TYPE_OPEN;
-		} elseif($importString{0} === '<') {
-			throw new Exception("Parse error near `$importString`");
-		} else {
-			$this->name = '#text';
-			$this->text = $importString;
-			$this->type = self::TYPE_TEXT;
-
-		}
-
-		if(strlen($this->text))
-			$this->text = htmlspecialchars_decode(str_replace('&apos;', "'", $this->text));
-	}
-
-	static function parseParameters($parametersString) {
-		$parametersString = trim($parametersString);
-
-		$params = array();
-		$isParamName = true;
-		$isSpace = false;
-		$paramName = '';
-		$paramValue = '';
-		$isParamValue = true;
-		$paramValueQuoteType = null;
-
-		for($i=0; $i<strlen($parametersString); $i++) {
-			$chr = $parametersString{$i};
-
-			if($isSpace) {
-				if(ctype_space($chr))
-					continue;
-				$isParamName = true;
-				$isSpace = false;
-			}
-
-			if($isParamName) {
-				if($chr === '=' || ctype_space($chr)) {
-					if(!strlen($paramName))
-						throw new Exception("Empty parameter name ($parametersString)");
-
-					$params[$paramName] = true;
-					if($chr === '=') {
-						$isParamName = false;
-						$isParamValue = true;
-					} else {
-						$isParamName = false;
-						$paramName = '';
-						$isSpace = true;
-					}
-				} elseif($chr === '\'' || $chr === '"') {
-					throw new Exception("Can't parse parameter name `$paramName` ($parametersString)");
-				} else {
-					$paramName .= $chr;
-				}
-				continue;
-			} elseif($isParamValue) {
-				if($paramValueQuoteType === null) {
-					if($chr == "'" || $chr == '"')
-						$paramValueQuoteType = $chr;
-					else
-						throw new Exception("Unquoted parameter ($parametersString)");
-
-				} elseif($chr === $paramValueQuoteType) {
-					$isParamValue = false;
-					$isSpace = true;
-
-					$params[$paramName] = $paramValue;
-
-					$paramName = '';
-					$paramValue = '';
-					$paramValueQuoteType = null;
-				} else {
-					$paramValue .= $chr;
-				}
-			}
-		}
-
-		if($isParamName || $isParamValue) {
-			throw new Exception("Unexpected end of parameters string ($parametersString)");
-		}
-
-		return $params;
 	}
 
 	function isXmlDeclaration() {
