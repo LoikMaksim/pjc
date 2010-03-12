@@ -83,8 +83,10 @@ class PJC_JabberClient extends PJC_XMPP {
 
 		if($elt->hasParam('type') && $elt->param('type') == 'groupchat') {
 			$conferenceAddress = PJC_XMPP::parseJid($elt->param('from'), 'short');
-			if(!$this->joinedToConference($conferenceAddress))
-				throw new Exception("Message from unjoined conference `$conferenceAddress`");
+			if(!$this->joinedToConference($conferenceAddress)) {
+				$this->log->warning("Message from unjoined conference `$conferenceAddress`", $elt->dump());
+				return true;
+			}
 			$continueHandling = $this->onConferenceMessage($this->conferences[$conferenceAddress], $fromUser, $message, $elt); //!
 		} else {
 			$continueHandling = $this->onPrivateMessage($fromUser, $message, null, $elt);
