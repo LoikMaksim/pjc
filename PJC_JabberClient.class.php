@@ -449,7 +449,6 @@ class PJC_JabberClient extends PJC_XMPP {
 		$this->sendStanza(array(
 			'#name'=>'iq',
 			'type'=>'set',
-			'to'=>'jubo@nologin.ru',
 			array(
 				'#name'=>'pubsub',
 				'xmlns'=>'http://jabber.org/protocol/pubsub',
