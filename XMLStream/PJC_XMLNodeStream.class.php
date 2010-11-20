@@ -30,7 +30,7 @@ class PJC_XMLNodeStream extends PJC_Stream {
 		$node = array_shift($this->parsedNodes);
 
 		if($expectedNode !== null && $node->getName() !== $expectedNode)
-			throw new PJC_XMLNodeStreamException("Unexpected node `{$node->getName()}`. `$expectedName` expected");
+			throw new PJC_XMLNodeStreamException("Unexpected node `{$node->getName()}`. `$expectedNode` expected");
 
 		return $node;
 	}
