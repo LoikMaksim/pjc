@@ -57,7 +57,7 @@ class PJC_Stream {
 		$this->streamErrorHandlingStart();
 		$readed = '';
 		try {
-			while(true) {
+			while(!$this->streamEof) {
 				$this->runOnSelect();
 				$timeoutSec = (int)$this->selectTimeout;
 				$timeoutUSec = ($this->selectTimeout - $timeoutSec) * 1000000;
@@ -82,7 +82,7 @@ class PJC_Stream {
 								$this->streamEof = true;
 								break;
 							} else { // wtf?!
-								continue;
+								throw new PJC_StreamException("Strange situation. Socket is not a closed, but fread() return ''");
 							}
 						}
 					} elseif($s === 0) {

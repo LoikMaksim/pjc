@@ -85,7 +85,7 @@ class PJC_XMPP {
 		$this->sock = @fsockopen($this->connectionAddress, $this->port, $errno, $errstr);
 		if(!$this->sock)
 			throw new PJC_NetworkException($errstr, $errno);
-		stream_set_blocking($this->sock, 0);
+// 		stream_set_blocking($this->sock, 0);
 
 		$this->in = new PJC_XMLStream($this->sock);
 		$this->out = new PJC_XMLStream($this->sock);
@@ -111,8 +111,8 @@ class PJC_XMPP {
 		$this->sendStanza(array('#name'=>'starttls', 'xmlns'=>'urn:ietf:params:xml:ns:xmpp-tls'));
 		$this->in->readElement('proceed');
 
-		/*!TODO error handling */
-		stream_socket_enable_crypto($this->sock, true, STREAM_CRYPTO_METHOD_SSLv23_CLIENT);
+		if(stream_socket_enable_crypto($this->sock, true, STREAM_CRYPTO_METHOD_SSLv23_CLIENT) === false)
+			throw new PJC_NetworkException("Can't initialize TLS. Check PHP installation");
 		$this->log->notice('TLS started');
 	}
 
