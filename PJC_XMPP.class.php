@@ -103,7 +103,7 @@ class PJC_XMPP {
 	}
 
 	protected function endStream() {
-		$this->out->write('</strem:stream>');
+		$this->out->write('</stream:stream>');
 	}
 
 	/**
@@ -111,16 +111,24 @@ class PJC_XMPP {
 	*/
 	public function disconnect() {
 		$this->log->debug('Disconnect requested');
+		$this->presenceUnavailable();
+		$this->endStream();
+		
+		$this->clear();
+		
+		$this->in = null;
+		$this->out = null;
+
+		$this->sock = null;
+		$this->log->debug('Disconnected');
+	}
+	
+	protected function clear() {
 		$this->handlers = array();
 		$this->crontab = array();
 		$this->updateCronAlarm();
-
-		$this->presenceUnavailable();
-		$this->endStream();
-
-		fclose($this->sock);
-		$this->sock = null;
-		$this->log->debug('Disconnected');
+		$this->out->clear();
+		$this->in->clear();
 	}
 
 	/**
@@ -275,15 +283,18 @@ class PJC_XMPP {
 	public function runEventBased() {
 		if(!$this->initiated)
 			$this->initiate();
-		$this->in->registerOnSelectCallback(array($this, 'alarm'));
-		$this->updateCronAlarm();
+		
+		if($this->in) {
+			$this->in->registerOnSelectCallback(array($this, 'alarm'));
+			$this->updateCronAlarm();
 
-		while($this->sock) {
-			$elt = $this->in->readElement();
-			if(!$elt)
-				break;
-			if(!$this->runHandlers($elt))
-				$this->log->debug('Unhandled event', $elt->dump());
+			while($this->sock) {
+				$elt = $this->in->readElement();
+				if(!$elt)
+					break;
+				if(!$this->runHandlers($elt))
+					$this->log->debug('Unhandled event', $elt->dump());
+			}
 		}
 
 		$this->log->debug('Exit from event loop');
@@ -480,7 +491,8 @@ class PJC_XMPP {
 	public function presenceUnavailable() {
 		$this->sendStanza(array(
 			'#name'=>'presence',
-			'type' => 'unavailable'
+			'xmlns' => 'jabber:client',
+			'type' => 'unavailable',
 		));
 	}
 

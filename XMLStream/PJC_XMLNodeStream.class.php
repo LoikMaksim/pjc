@@ -10,8 +10,23 @@ class PJC_XMLNodeStream extends PJC_Stream {
 		parent::__construct($input);
 		$this->resetParser();
 	}
+	
+	public function __destruct() {
+		parent::__destruct();
+		$this->clear();
+	}
+	
+	public function clear() {
+		if($this->xmlParser)
+			xml_parser_free($this->xmlParser);
+		
+		$this->xmlParser = null;
+	}
 
 	final public function resetParser() {
+		if($this->xmlParser)
+			xml_parser_free($this->xmlParser);
+		
 		$this->xmlParser = xml_parser_create('UTF-8');
 		xml_set_object($this->xmlParser, $this);
 		xml_set_element_handler($this->xmlParser, '___xmlParser_startElementHandler', '___xmlParser_endElementHandler');
