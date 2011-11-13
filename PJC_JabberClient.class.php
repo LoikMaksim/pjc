@@ -68,6 +68,11 @@ class PJC_JabberClient extends PJC_XMPP {
 		$this->onSessionStarted();
 	}
 
+	public function disconnect() {
+		parent::disconnect();
+		$this->waiterEvents = array();
+	}
+
 	/* ----------------------------------- messages --------------------------*/
 	/**
 	*	Служебный обработчик <message>-станзы

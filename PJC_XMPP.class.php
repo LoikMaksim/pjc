@@ -102,6 +102,27 @@ class PJC_XMPP {
 		$this->log->notice('Stream started');
 	}
 
+	protected function endStream() {
+		$this->out->write('</strem:stream>');
+	}
+
+	/**
+	* Сбросить все хендлеры, завершить соединение и остановить event loop
+	*/
+	public function disconnect() {
+		$this->log->debug('Disconnect requested');
+		$this->handlers = array();
+		$this->crontab = array();
+		$this->updateCronAlarm();
+
+		$this->presenceUnavailable();
+		$this->endStream();
+
+		fclose($this->sock);
+		$this->sock = null;
+		$this->log->debug('Disconnected');
+	}
+
 	/**
 	*	Проинициализировать TLS.
 	*	TLS реализуется целиком средствами самого PHP, поэтому после инициализации
@@ -257,13 +278,15 @@ class PJC_XMPP {
 		$this->in->registerOnSelectCallback(array($this, 'alarm'));
 		$this->updateCronAlarm();
 
-		while(true) {
+		while($this->sock) {
 			$elt = $this->in->readElement();
 			if(!$elt)
 				break;
 			if(!$this->runHandlers($elt))
 				$this->log->debug('Unhandled event', $elt->dump());
 		}
+
+		$this->log->debug('Exit from event loop');
 	}
 
 	/* ----------------------------- cron ---------------------------- */
@@ -451,6 +474,13 @@ class PJC_XMPP {
 				'#name'=>'priority',
 				$this->priority
 			)
+		));
+	}
+
+	public function presenceUnavailable() {
+		$this->sendStanza(array(
+			'#name'=>'presence',
+			'type' => 'unavailable'
 		));
 	}
 
